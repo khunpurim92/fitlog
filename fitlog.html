@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="FitLog">
+<meta name="theme-color" content="#4338CA">
+<title>FitLog</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap');
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+  :root{
+    --indigo:#4338CA; --indigo-l:#6366F1; --indigo-bg:#EEF2FF;
+    --ink:#111827; --muted:#6B7280; --faint:#9CA3AF;
+    --line:#ECECEC; --bg:#F4F4F2; --card:#fff;
+    --green:#15803D; --amber:#B45309; --red:#DC2626;
+  }
+  body{font-family:'Noto Sans Thai',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  #app{max-width:440px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;position:relative;background:var(--bg);}
+  .scroll{flex:1;overflow-y:auto;padding:12px 14px 90px;}
+  /* date bar */
+  .datebar{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);padding:11px 12px;display:flex;align-items:center;gap:8px;padding-top:calc(11px + env(safe-area-inset-top));}
+  .navbtn{width:38px;height:38px;border-radius:12px;border:none;background:var(--bg);color:var(--indigo);font-size:24px;font-weight:700;cursor:pointer;}
+  .navbtn:disabled{opacity:.3;}
+  .datemid{text-align:center;flex:1;}
+  .datemid .d{font-size:18px;font-weight:800;}
+  .todaychip{margin-top:2px;background:var(--indigo-bg);border:none;color:var(--indigo);font-size:11px;font-weight:600;padding:2px 10px;border-radius:10px;cursor:pointer;}
+  .todaydot{font-size:11px;color:var(--indigo);font-weight:600;}
+  /* cards */
+  .card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .lbl{font-size:12px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
+  .num{font-variant-numeric:tabular-nums;}
+  .bartrack{height:8px;background:#F0F0F0;border-radius:4px;margin-top:12px;overflow:hidden;}
+  .barfill{height:100%;border-radius:4px;transition:width .4s;}
+  /* meal */
+  .mealcard{background:#fff;border-radius:16px;padding:12px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .mealhead{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .mealhead .name{font-weight:700;font-size:15px;}
+  .mealhead .sub{font-size:12px;color:var(--muted);}
+  .addbtn{margin-left:auto;background:var(--indigo-bg);border:none;color:var(--indigo);font-size:12px;font-weight:700;padding:4px 12px;border-radius:10px;cursor:pointer;}
+  .foodrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--bg);}
+  .foodrow .fn{font-size:13.5px;font-weight:500;}
+  .foodrow .meta{font-size:11px;color:var(--faint);}
+  .foodrow .cal{font-size:13px;font-weight:600;color:#374151;}
+  .delbtn{background:none;border:none;color:#D1D5DB;font-size:20px;cursor:pointer;padding:0 4px;}
+  .empty{font-size:12px;color:#C4C4C4;padding:4px 0 2px;}
+  .hint{text-align:center;padding:40px 20px;color:var(--faint);}
+  .hint .ic{font-size:40px;margin-bottom:8px;}
+  /* stats */
+  .statrow{display:flex;gap:8px;flex-wrap:wrap;}
+  .stat{flex:1;min-width:78px;background:#F9FAFB;border-radius:12px;padding:10px 12px;text-align:center;}
+  .stat.hl{background:var(--indigo-bg);}
+  .stat .sl{font-size:11px;color:var(--muted);}
+  .stat .sv{font-size:19px;font-weight:800;}
+  .stat.hl .sv{color:var(--indigo);}
+  .stat .su{font-size:10px;color:var(--faint);}
+  /* macro */
+  .macro{flex:1;}
+  .macro .top{display:flex;justify-content:space-between;margin-bottom:3px;}
+  .macro .ml{font-size:11px;color:var(--muted);}
+  .macro .mv{font-size:11px;color:#374151;}
+  .macro .mt{height:5px;background:#F0F0F0;border-radius:3px;}
+  .macro .mf{height:100%;border-radius:3px;}
+  /* forms */
+  .field{flex:1;}
+  .flbl{font-size:11.5px;color:var(--muted);margin-bottom:5px;font-weight:600;}
+  input,select{width:100%;padding:10px 12px;border:1px solid #E5E7EB;border-radius:12px;font-size:14px;font-family:inherit;outline:none;color:var(--ink);background:#fff;}
+  input:focus,select:focus{border-color:var(--indigo);}
+  input:disabled{background:var(--bg);color:var(--muted);}
+  .row{display:flex;gap:8px;}
+  .seg{display:flex;gap:6px;background:var(--bg);padding:4px;border-radius:12px;}
+  .seg button{flex:1;padding:8px 4px;border:none;border-radius:9px;background:none;color:var(--faint);font-weight:600;font-size:12px;cursor:pointer;font-family:inherit;}
+  .seg button.on{background:#fff;color:var(--indigo);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08);}
+  .btn{border:none;border-radius:12px;padding:10px 18px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
+  .btn-primary{background:var(--indigo);color:#fff;}
+  .btn-ghost{background:var(--bg);color:var(--muted);}
+  .btn-save{width:100%;background:var(--indigo);color:#fff;border:none;border-radius:14px;padding:14px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;margin-top:4px;}
+  .btn-block{width:100%;}
+  .photobtn{width:100%;padding:28px 0;border:2px dashed #C7D2FE;border-radius:14px;background:#F8FAFF;display:flex;flex-direction:column;align-items:center;cursor:pointer;}
+  .scanbtn{background:var(--indigo);border:none;color:#fff;font-size:12px;font-weight:700;padding:6px 12px;border-radius:10px;cursor:pointer;}
+  .warn{font-size:12px;color:var(--amber);background:#FEF3C7;border-radius:10px;padding:8px 10px;line-height:1.4;}
+  .note{font-size:12px;color:var(--indigo);background:var(--indigo-bg);border-radius:10px;padding:8px 10px;line-height:1.5;}
+  .err{color:var(--red);font-size:12px;}
+  /* tabbar */
+  .tabbar{position:fixed;bottom:0;left:0;right:0;max-width:440px;margin:0 auto;background:#fff;border-top:1px solid var(--line);display:flex;padding:4px 0 calc(8px + env(safe-area-inset-bottom));z-index:30;}
+  .tabbar button{flex:1;background:none;border:none;cursor:pointer;padding:8px 0;display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .tabbar .ic{font-size:20px;filter:grayscale(1);opacity:.5;}
+  .tabbar .tl{font-size:10px;font-weight:500;color:var(--faint);}
+  .tabbar button.on .ic{filter:none;opacity:1;}
+  .tabbar button.on .tl{font-weight:700;color:var(--indigo);}
+  /* coach fab */
+  .fab{position:fixed;bottom:78px;right:14px;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#4338CA,#6366F1);border:none;color:#fff;font-size:24px;cursor:pointer;box-shadow:0 6px 20px rgba(67,56,202,.45);z-index:40;}
+  @media(min-width:472px){.fab{right:calc(50% - 220px + 14px);}}
+  /* overlay/sheet */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;z-index:100;}
+  .sheet{background:#fff;width:100%;max-width:440px;border-radius:24px 24px 0 0;padding:12px 18px 28px;max-height:90vh;overflow-y:auto;animation:slideUp .25s ease;}
+  .handle{width:40px;height:4px;background:#E5E7EB;border-radius:2px;margin:0 auto 14px;}
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  /* coach chat */
+  .chatwrap{display:flex;flex-direction:column;height:90vh;}
+  .chathead{display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid #F0F0F0;}
+  .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#4338CA,#818CF8);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+  .chatbody{flex:1;overflow-y:auto;padding:12px 2px;display:flex;flex-direction:column;gap:10px;}
+  .msg{display:flex;gap:8px;}
+  .msg.user{flex-direction:row-reverse;}
+  .bubble{max-width:80%;padding:9px 13px;font-size:13.5px;line-height:1.55;white-space:pre-wrap;}
+  .msg.ai .bubble{background:#F4F4F6;color:#1F2937;border-radius:16px 16px 16px 4px;}
+  .msg.user .bubble{background:var(--indigo);color:#fff;border-radius:16px 16px 4px 16px;}
+  .quick{display:flex;gap:6px;flex-wrap:wrap;padding:6px 0;}
+  .quick button{background:var(--indigo-bg);border:1px solid #C7D2FE;border-radius:16px;padding:6px 11px;font-size:12px;color:var(--indigo);cursor:pointer;font-family:inherit;}
+  .chatinput{display:flex;gap:8px;padding-top:8px;border-top:1px solid #F0F0F0;}
+  .chatinput input{border-radius:20px;}
+  .sendbtn{width:42px;height:42px;border-radius:50%;border:none;background:var(--indigo);color:#fff;font-size:18px;cursor:pointer;flex-shrink:0;}
+  .sendbtn:disabled{background:#C7D2FE;}
+  .dots{display:flex;gap:5px;padding:12px 16px;background:#F4F4F6;border-radius:16px 16px 16px 4px;}
+  .dots span{width:6px;height:6px;border-radius:50%;background:var(--indigo);animation:bounce 1.2s infinite;}
+  .dots span:nth-child(2){animation-delay:.2s;}.dots span:nth-child(3){animation-delay:.4s;}
+  /* bars/charts */
+  .chart{display:flex;align-items:flex-end;gap:4px;height:110px;}
+  .chart .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .chart .cv{font-size:9px;color:var(--faint);}
+  .chart .cb{width:100%;border-radius:4px 4px 0 0;}
+  .chart .cd{font-size:8px;color:#C4C4C4;}
+  /* setup */
+  .setup-head{padding:36px 20px 16px;text-align:center;}
+  .setup-head .logo{font-size:44px;}
+  .setup-head .ttl{font-size:24px;font-weight:800;color:var(--indigo);margin-top:6px;}
+  .setup-head .sub{font-size:13px;color:var(--muted);margin-top:4px;}
+  .goalbox{background:#F8FAFF;border-radius:12px;padding:12px;}
+  .goalbox .gt{font-size:12px;color:var(--indigo);font-weight:700;margin-bottom:8px;}
+  .favchip{display:inline-flex;align-items:center;gap:6px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:7px 10px;font-size:12.5px;cursor:pointer;margin:0 6px 6px 0;}
+  .favchip .fc{color:var(--muted);font-size:11px;}
+  .toast{position:fixed;bottom:140px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;}
+  .toast.show{opacity:1;}
+  .keystatus{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;}
+  .keystatus.ok{color:var(--green);}.keystatus.no{color:var(--red);}
+  ::-webkit-scrollbar{width:0;}
+  h3{font-size:15px;font-weight:700;margin-bottom:6px;}
+  .small{font-size:11px;color:var(--faint);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   FitLog — เทรนเนอร์ส่วนตัว (single-file, localStorage)
+   AI ผ่าน API key ของผู้ใช้ (เก็บในเครื่อง)
+   ============================================================ */
+
+// ---------- constants ----------
+const MEALS=[{id:"breakfast",label:"เช้า",icon:"🌅"},{id:"lunch",label:"กลางวัน",icon:"☀️"},{id:"dinner",label:"เย็น",icon:"🌙"},{id:"snack",label:"ว่าง",icon:"🍎"}];
+const ACTIVITY=[{id:1.2,label:"นั่งทำงาน ไม่ออกกำลังกาย"},{id:1.375,label:"ออกกำลังเบา 1-3 วัน/สัปดาห์"},{id:1.55,label:"ออกกำลังปานกลาง 3-5 วัน"},{id:1.725,label:"ออกกำลังหนัก 6-7 วัน"}];
+const GOALS=[{id:"lose",label:"ลดไขมัน"},{id:"recomp",label:"ลดไขมัน+เพิ่มกล้าม"},{id:"gain",label:"เพิ่มกล้าม"}];
+const MODEL="claude-sonnet-4-6";
+
+// ---------- storage ----------
+const LS={
+  get(k,fb){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}},
+  set(k,v){localStorage.setItem(k,JSON.stringify(v));},
+  del(k){localStorage.removeItem(k);}
+};
+const K={profile:"fitlog_profile",key:"fitlog_apikey",body:"fitlog_body",plan:"fitlog_plan",fav:"fitlog_favorites",food:d=>"fitlog_food_"+d,workout:d=>"fitlog_workout_"+d};
+
+// ---------- date helpers ----------
+const todayStr=()=>new Date().toLocaleDateString("sv-SE");
+const addDays=(s,n)=>{const d=new Date(s+"T00:00:00");d.setDate(d.getDate()+n);return d.toLocaleDateString("sv-SE");};
+const isToday=s=>s===todayStr();
+function fmtDate(s){const d=new Date(s+"T00:00:00");const days=["อา","จ","อ","พ","พฤ","ศ","ส"];const m=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];return `${days[d.getDay()]} ${d.getDate()} ${m[d.getMonth()]}`;}
+
+// ---------- nutrition math ----------
+function mifflin(p,w){return p.gender==="male"?10*w+6.25*p.height-5*p.age+5:10*w+6.25*p.height-5*p.age-161;}
+function latestBody(){const b=LS.get(K.body,[]);return b.length?[...b].sort((a,c)=>a.date<c.date?1:-1)[0]:null;}
+function computeTargets(p,body){
+  const weight=body?.weight??p.weight??70;
+  const bmr=Math.round(body?.bmr??mifflin(p,weight));
+  const tdee=Math.round(bmr*(p.activity||1.375));
+  const bf=body?.bodyFat??null;
+  const lean=bf?weight*(1-bf/100):weight*0.78;
+  const dir=p.targetWeight?(p.targetWeight<weight?"lose":p.targetWeight>weight?"gain":"maintain"):"lose";
+  let cal=dir==="lose"?tdee-500:dir==="gain"?tdee+250:tdee;
+  cal=Math.max(1200,Math.round(cal));
+  const protein=Math.round(lean*2.4);
+  const fat=Math.round(cal*0.25/9);
+  const carb=Math.max(0,Math.round((cal-protein*4-fat*9)/4));
+  return {bmr,tdee,cal,protein,carb,fat,lean:Math.round(lean*10)/10,bf};
+}
+function impliedWeight(body,tbf){if(!body?.bodyFat||!tbf)return null;const lean=body.weight*(1-body.bodyFat/100);return Math.round(lean/(1-tbf/100)*10)/10;}
+
+// ---------- AI ----------
+function getKey(){return LS.get(K.key,"")||"";}
+async function callClaude({system,messages,max_tokens=1024}){
+  const key=getKey();
+  if(!key)throw new Error("NO_KEY");
+  const res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:MODEL,max_tokens,...(system?{system}:{}),messages})
+  });
+  if(!res.ok){const t=await res.text();throw new Error(res.status+": "+t.slice(0,200));}
+  const data=await res.json();
+  return (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+}
+function parseJSON(txt){return JSON.parse(txt.replace(/```json|```/g,"").trim());}
+
+// ---------- app state ----------
+let state={tab:"food",date:todayStr()};
+
+// ---------- render root ----------
+function render(){
+  const app=document.getElementById("app");
+  const profile=LS.get(K.profile,null);
+  if(!profile){app.innerHTML=viewSetup();bindSetup();return;}
+  app.innerHTML=`
+    ${dateBar()}
+    <div class="scroll" id="scroll">${renderTab()}</div>
+    <button class="fab" id="fab">💬</button>
+    ${tabBar()}
+  `;
+  bindCommon();
+  bindTab();
+  checkWeighReminder();
+}
+
+function dateBar(){
+  return `<div class="datebar">
+    <button class="navbtn" id="prev">‹</button>
+    <div class="datemid"><div class="d">${fmtDate(state.date)}</div>
+      ${isToday(state.date)?'<div class="todaydot">● วันนี้</div>':'<button class="todaychip" id="today">กลับมาวันนี้</button>'}
+    </div>
+    <button class="navbtn" id="next" ${isToday(state.date)?"disabled":""}>›</button>
+  </div>`;
+}
+function tabBar(){
+  const tabs=[["food","🍽️","อาหาร"],["workout","💪","ออกกำลัง"],["body","⚖️","ร่างกาย"],["more","⚙️","เพิ่มเติม"]];
+  return `<div class="tabbar">${tabs.map(t=>`<button data-tab="${t[0]}" class="${state.tab===t[0]?"on":""}"><span class="ic">${t[1]}</span><span class="tl">${t[2]}</span></button>`).join("")}</div>`;
+}
+function renderTab(){
+  if(state.tab==="food")return viewFood();
+  if(state.tab==="workout")return viewWorkout();
+  if(state.tab==="body")return viewBody();
+  if(state.tab==="more")return viewMore();
+}
+
+function bindCommon(){
+  document.getElementById("prev").onclick=()=>{state.date=addDays(state.date,-1);render();};
+  document.getElementById("next").onclick=()=>{if(!isToday(state.date)){state.date=addDays(state.date,1);render();}};
+  const t=document.getElementById("today");if(t)t.onclick=()=>{state.date=todayStr();render();};
+  document.querySelectorAll(".tabbar button").forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;render();});
+  document.getElementById("fab").onclick=openCoach;
+}
+
+/* ===================== FOOD ===================== */
+function viewFood(){
+  const p=LS.get(K.profile,null), t=computeTargets(p,latestBody());
+  const food=LS.get(K.food(state.date),[]);
+  const tot=food.reduce((a,f)=>({cal:a.cal+f.cal,protein:a.protein+f.protein,carb:a.carb+f.carb,fat:a.fat+f.fat}),{cal:0,protein:0,carb:0,fat:0});
+  const remain=t.cal-tot.cal, pct=Math.min(100,tot.cal/t.cal*100);
+  const status=tot.cal>t.cal?"var(--red)":pct>85?"var(--amber)":"var(--green)";
+  let html=`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+      <div><div class="lbl">เหลือกินได้วันนี้</div>
+        <div class="num" style="font-size:38px;font-weight:800;color:${status};line-height:1">${remain>=0?remain:"+"+Math.abs(remain)}</div>
+        <div style="font-size:12px;color:var(--faint)">${remain>=0?"kcal เหลือ":"kcal เกินเป้า"}</div>
+      </div>
+      <div style="text-align:right"><div class="num" style="font-size:13px;color:var(--muted)">${tot.cal} / ${t.cal}</div><div style="font-size:11px;color:var(--faint)">กินแล้ว / เป้าหมาย</div></div>
+    </div>
+    <div class="bartrack"><div class="barfill" style="width:${pct}%;background:${status}"></div></div>
+    <div class="row" style="margin-top:12px">
+      ${macro("โปรตีน",tot.protein,t.protein,"#4338CA")}
+      ${macro("คาร์บ",tot.carb,t.carb,"#0891B2")}
+      ${macro("ไขมัน",tot.fat,t.fat,"#D97706")}
+    </div></div>`;
+  MEALS.forEach(m=>{
+    const items=food.filter(f=>f.meal===m.id), sub=items.reduce((a,f)=>a+f.cal,0);
+    html+=`<div class="mealcard"><div class="mealhead">
+      <span style="font-size:16px">${m.icon}</span><span class="name">${m.label}</span>
+      ${sub>0?`<span class="sub num">${sub} kcal</span>`:""}
+      <button class="addbtn" data-meal="${m.id}">+ เพิ่ม</button></div>
+      ${items.length===0?'<div class="empty">ยังไม่มีรายการ</div>':items.map(f=>`
+        <div class="foodrow"><div style="flex:1"><div class="fn">${esc(f.name)}</div><div class="meta">${f.time||""} · ป ${f.protein} · ค ${f.carb} · ม ${f.fat}</div></div>
+        <div class="cal num">${f.cal}</div><button class="delbtn" data-del="${f.id}">×</button></div>`).join("")}
+    </div>`;
+  });
+  return html;
+}
+function macro(label,v,t,c){const pct=Math.min(100,v/t*100);return `<div class="macro"><div class="top"><span class="ml">${label}</span><span class="mv num">${v}/${t}g</span></div><div class="mt"><div class="mf" style="width:${pct}%;background:${c}"></div></div></div>`;}
+function bindTab(){
+  if(state.tab==="food"){
+    document.querySelectorAll(".addbtn").forEach(b=>b.onclick=()=>openAddFood(b.dataset.meal));
+    document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{const food=LS.get(K.food(state.date),[]).filter(f=>String(f.id)!==b.dataset.del);LS.set(K.food(state.date),food);render();});
+  }
+  if(state.tab==="body")bindBody();
+  if(state.tab==="workout")bindWorkout();
+  if(state.tab==="more")bindMore();
+}
+
+/* add food sheet */
+function openAddFood(meal){
+  const fav=LS.get(K.fav,[]);
+  const mealLabel=MEALS.find(m=>m.id===meal).label;
+  showSheet(`
+    <div class="handle"></div>
+    <div style="font-weight:800;font-size:17px">เพิ่มอาหารมื้อ${mealLabel}</div>
+    <div style="font-size:12px;color:var(--faint);margin-bottom:14px">${fmtDate(state.date)}</div>
+    <div class="seg" id="afmode"><button class="on" data-m="manual">✍️ กรอกเอง</button><button data-m="photo">📷 ถ่ายรูป (AI)</button></div>
+    <div style="height:14px"></div>
+    ${fav.length?`<div class="lbl" style="margin-bottom:6px">⭐ รายการโปรด (แตะเพื่อเพิ่ม)</div><div id="favlist" style="margin-bottom:14px">${fav.map((f,i)=>`<span class="favchip" data-fav="${i}">${esc(f.name)} <span class="fc">${f.cal}</span></span>`).join("")}</div>`:""}
+    <div id="af-photo" style="display:none;margin-bottom:14px"></div>
+    <div id="af-manual">
+      <div class="field" style="margin-bottom:10px"><div class="flbl">ชื่ออาหาร</div><input id="f-name" placeholder="เช่น ข้าวมันไก่"></div>
+      <div class="row" style="margin-bottom:10px"><div class="field"><div class="flbl">แคลอรี่</div><input id="f-cal" type="number" inputmode="decimal"></div><div class="field"><div class="flbl">โปรตีน(g)</div><input id="f-protein" type="number" inputmode="decimal"></div></div>
+      <div class="row" style="margin-bottom:10px"><div class="field"><div class="flbl">คาร์บ(g)</div><input id="f-carb" type="number" inputmode="decimal"></div><div class="field"><div class="flbl">ไขมัน(g)</div><input id="f-fat" type="number" inputmode="decimal"></div></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-bottom:8px"><input type="checkbox" id="f-save" style="width:auto"> บันทึกเป็นรายการโปรด</label>
+    </div>
+    <div class="err" id="af-err" style="margin-bottom:10px"></div>
+    <button class="btn-save" id="af-submit">บันทึกลงมื้อ${mealLabel}</button>
+  `);
+  let imgState={mime:null,b64:null};
+  const photoBox=document.getElementById("af-photo"), manualBox=document.getElementById("af-manual");
+  document.querySelectorAll("#afmode button").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll("#afmode button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+    const photo=b.dataset.m==="photo";
+    photoBox.style.display=photo?"block":"none";manualBox.style.display=photo?"none":"block";
+    if(photo&&!photoBox.innerHTML)renderPhotoPicker(photoBox,imgState,async()=>{
+      setErr("af-err","");const btn=document.getElementById("af-analyze");btn.textContent="🔍 วิเคราะห์...";btn.disabled=true;
+      try{
+        const txt=await callClaude({max_tokens:1000,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:imgState.mime,data:imgState.b64}},{type:"text",text:`วิเคราะห์อาหารในรูป ตอบ JSON อย่างเดียว:\n{"name":"ชื่อไทย","cal":number,"protein":g,"carb":g,"fat":g}`}]}]});
+        const r=parseJSON(txt);
+        document.querySelector("#afmode button[data-m='manual']").click();
+        document.getElementById("f-name").value=r.name||"อาหาร";
+        document.getElementById("f-cal").value=Math.round(r.cal)||0;
+        document.getElementById("f-protein").value=Math.round(r.protein)||0;
+        document.getElementById("f-carb").value=Math.round(r.carb)||0;
+        document.getElementById("f-fat").value=Math.round(r.fat)||0;
+      }catch(e){setErr("af-err",aiError(e));btn.textContent="🤖 วิเคราะห์ด้วย AI";btn.disabled=false;}
+    });
+  });
+  document.querySelectorAll("[data-fav]").forEach(c=>c.onclick=()=>{
+    const f=fav[+c.dataset.fav];saveFood(meal,f);closeSheet();render();toast("เพิ่ม "+f.name+" แล้ว");
+  });
+  document.getElementById("af-submit").onclick=()=>{
+    const name=document.getElementById("f-name").value.trim();
+    const cal=+document.getElementById("f-cal").value;
+    if(!name||!cal){setErr("af-err","กรอกชื่อและแคลอรี่");return;}
+    const item={name,cal,protein:+document.getElementById("f-protein").value||0,carb:+document.getElementById("f-carb").value||0,fat:+document.getElementById("f-fat").value||0};
+    if(document.getElementById("f-save").checked){const fv=LS.get(K.fav,[]);if(!fv.some(x=>x.name===name)){fv.push(item);LS.set(K.fav,fv);}}
+    saveFood(meal,item);closeSheet();render();toast("บันทึกแล้ว");
+  };
+}
+function saveFood(meal,item){
+  const food=LS.get(K.food(state.date),[]);
+  food.push({id:Date.now()+""+Math.floor(Math.random()*999),meal,name:item.name,cal:item.cal,protein:item.protein,carb:item.carb,fat:item.fat,time:new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"})});
+  LS.set(K.food(state.date),food);
+}
+function renderPhotoPicker(box,imgState,onAnalyze){
+  box.innerHTML=`<button class="photobtn" id="pp-pick"><span style="font-size:32px">📷</span><span style="font-size:13px;color:var(--muted);margin-top:4px">แตะเพื่อถ่าย/เลือกรูป</span></button><input type="file" accept="image/*" capture="environment" id="pp-file" style="display:none">`;
+  const file=box.querySelector("#pp-file");
+  box.querySelector("#pp-pick").onclick=()=>file.click();
+  file.onchange=e=>{
+    const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();r.onload=ev=>{
+      const m=ev.target.result.match(/^data:(.*?);base64,(.*)$/);imgState.mime=m[1];imgState.b64=m[2];
+      box.innerHTML=`<div style="text-align:center"><img src="${ev.target.result}" style="max-height:160px;border-radius:12px;border:2px solid var(--indigo)"><div class="row" style="margin-top:10px"><button class="btn btn-ghost" id="pp-change">เปลี่ยนรูป</button><button class="btn btn-primary" id="af-analyze" style="flex:1">🤖 วิเคราะห์ด้วย AI</button></div></div>`;
+      box.querySelector("#pp-change").onclick=()=>renderPhotoPicker(box,imgState,onAnalyze);
+      box.querySelector("#af-analyze").onclick=onAnalyze;
+    };r.readAsDataURL(f);
+  };
+}
+
+/* ===================== BODY ===================== */
+function viewBody(){
+  const p=LS.get(K.profile,null), t=computeTargets(p,latestBody());
+  const body=LS.get(K.body,[]).sort((a,b)=>a.date<b.date?-1:1);
+  const latest=body[body.length-1], first=body[0];
+  const implied=impliedWeight(latest,p.targetBf);
+  let html=`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="lbl">ร่างกายล่าสุด ${latest?"· "+latest.date.slice(5):""}</div>
+      <button class="scanbtn" id="scan">📷 สแกนเครื่องชั่ง</button></div>`;
+  if(!latest)html+=`<div style="font-size:13px;color:var(--faint);padding:8px 0">ยังไม่มีข้อมูล — สแกนเครื่องชั่งครั้งแรกได้เลย</div>`;
+  else{html+=`<div class="statrow">
+      ${stat("น้ำหนัก",latest.weight,"kg",true)}
+      ${latest.bodyFat!=null?stat("ไขมัน",latest.bodyFat,"%",true):""}
+      ${latest.muscleMass!=null?stat("กล้ามเนื้อ",latest.muscleMass,"kg"):""}
+      ${latest.bmr!=null?stat("BMR",latest.bmr,"kcal"):""}
+      ${latest.visceralFat!=null?stat("ไขมันช่องท้อง",latest.visceralFat,""):""}
+      ${latest.metabolicAge!=null?stat("อายุร่างกาย",latest.metabolicAge,"ปี"):""}
+    </div>`;}
+  html+=`</div>`;
+  if(latest&&(p.targetWeight||p.targetBf)){
+    html+=`<div class="card"><div class="lbl" style="margin-bottom:10px">ความคืบหน้าสู่เป้าหมาย</div>`;
+    if(p.targetWeight)html+=goalBar("น้ำหนัก",first?.weight,latest.weight,p.targetWeight,"kg");
+    if(p.targetBf&&latest.bodyFat!=null)html+=goalBar("% ไขมัน",first?.bodyFat,latest.bodyFat,p.targetBf,"%");
+    if(implied)html+=`<div class="note" style="margin-top:10px">💡 ถ้ารักษากล้ามเนื้อไว้ (${Math.round(t.lean)}kg) เมื่อถึงไขมัน ${p.targetBf}% น้ำหนักควรอยู่ราว <b>${implied} kg</b></div>`;
+    html+=`</div>`;
+  }
+  if(body.length>=2){
+    html+=trendCard("แนวโน้มน้ำหนัก",body,"weight","#4338CA");
+    if(body.some(e=>e.bodyFat!=null))html+=trendCard("แนวโน้ม % ไขมัน",body.filter(e=>e.bodyFat!=null),"bodyFat","#D97706");
+  }
+  return html;
+}
+function stat(l,v,u,hl){return `<div class="stat ${hl?"hl":""}"><div class="sl">${l}</div><div class="sv num">${v}</div><div class="su">${u}</div></div>`;}
+function goalBar(label,from,now,target,unit){
+  const start=from??now, total=Math.abs(start-target)||1, done=Math.abs(start-now), pct=Math.min(100,Math.round(done/total*100));
+  return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px;font-weight:600">${label}</span><span class="num" style="font-size:12px;color:var(--muted)">${now}${unit} → เป้า ${target}${unit}</span></div>
+  <div style="height:8px;background:#F0F0F0;border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#4338CA,#818CF8);border-radius:4px"></div></div>
+  <div style="font-size:11px;color:var(--faint);margin-top:3px">คืบหน้า ${pct}% (จาก ${start}${unit})</div></div>`;
+}
+function trendCard(title,data,field,color){
+  const vals=data.map(d=>d[field]),max=Math.max(...vals),min=Math.min(...vals),range=max-min||1;
+  return `<div class="card"><div class="lbl" style="margin-bottom:12px">${title} (${Math.min(14,data.length)} ครั้งล่าสุด)</div>
+  <div class="chart">${data.slice(-14).map(d=>{const h=18+(d[field]-min)/range*80;return `<div class="col"><div class="cv num">${d[field]}</div><div class="cb" style="height:${h}px;background:${color};opacity:.85"></div><div class="cd">${d.date.slice(5)}</div></div>`;}).join("")}</div></div>`;
+}
+function bindBody(){const s=document.getElementById("scan");if(s)s.onclick=openScan;}
+
+function openScan(){
+  showSheet(`
+    <div class="handle"></div>
+    <div style="font-weight:800;font-size:17px">สแกนเครื่องชั่ง</div>
+    <div style="font-size:12px;color:var(--faint);margin-bottom:14px">${fmtDate(state.date)} · ถ่ายรูปจอเครื่องชั่งให้ AI อ่านค่า</div>
+    <div id="sc-photo"></div>
+    <div id="sc-form" style="display:none">
+      <div class="warn" style="margin-bottom:12px">⚠️ ตรวจสอบค่าก่อนบันทึก — เครื่องชั่ง BIA อาจคลาดเคลื่อนได้</div>
+      <div class="row" style="margin-bottom:10px"><div class="field"><div class="flbl">น้ำหนัก(kg)</div><input id="b-weight" type="number" inputmode="decimal"></div><div class="field"><div class="flbl">ไขมัน(%)</div><input id="b-bodyFat" type="number" inputmode="decimal"></div></div>
+      <div class="row" style="margin-bottom:10px"><div class="field"><div class="flbl">กล้ามเนื้อ(kg)</div><input id="b-muscleMass" type="number" inputmode="decimal"></div><div class="field"><div class="flbl">BMR(kcal)</div><input id="b-bmr" type="number" inputmode="decimal"></div></div>
+      <div class="row" style="margin-bottom:10px"><div class="field"><div class="flbl">ไขมันช่องท้อง</div><input id="b-visceralFat" type="number" inputmode="decimal"></div><div class="field"><div class="flbl">อายุร่างกาย</div><input id="b-metabolicAge" type="number" inputmode="decimal"></div></div>
+      <div class="err" id="sc-err" style="margin-bottom:10px"></div>
+      <button class="btn-save" id="sc-save">บันทึกข้อมูลร่างกาย</button>
+    </div>
+  `);
+  let imgState={mime:null,b64:null};
+  const photoBox=document.getElementById("sc-photo"), form=document.getElementById("sc-form");
+  function showForm(){photoBox.style.display="none";form.style.display="block";}
+  renderScalePicker(photoBox,imgState,showForm,async()=>{
+    setErr("sc-err","");const btn=document.getElementById("sc-analyze");btn.textContent="🔍 กำลังอ่าน...";btn.disabled=true;
+    try{
+      const txt=await callClaude({max_tokens:1000,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:imgState.mime,data:imgState.b64}},{type:"text",text:`อ่านค่าจากจอเครื่องชั่งไขมันในรูป ตอบ JSON อย่างเดียว ค่าไหนไม่มีให้ null:\n{"weight":kg,"bodyFat":%,"muscleMass":kg,"bmr":kcal,"visceralFat":number,"metabolicAge":ปี}`}]}]});
+      const r=parseJSON(txt);
+      ["weight","bodyFat","muscleMass","bmr","visceralFat","metabolicAge"].forEach(f=>{if(r[f]!=null)document.getElementById("b-"+f).value=r[f];});
+      showForm();
+    }catch(e){setErr("sc-err",aiError(e));showForm();}
+  });
+  document.getElementById("sc-save").onclick=()=>{
+    const w=+document.getElementById("b-weight").value;
+    if(!w){setErr("sc-err","ต้องมีน้ำหนักอย่างน้อย");return;}
+    const g=id=>{const v=document.getElementById(id).value;return v!==""?+v:null;};
+    const entry={date:state.date,weight:w,bodyFat:g("b-bodyFat"),muscleMass:g("b-muscleMass"),bmr:g("b-bmr"),visceralFat:g("b-visceralFat"),metabolicAge:g("b-metabolicAge")};
+    const body=LS.get(K.body,[]).filter(b=>b.date!==state.date);body.push(entry);LS.set(K.body,body);
+    closeSheet();render();toast("บันทึกข้อมูลร่างกายแล้ว");
+  };
+}
+function renderScalePicker(box,imgState,onManual,onAnalyze){
+  box.innerHTML=`<button class="photobtn" id="sp-pick"><span style="font-size:32px">⚖️</span><span style="font-size:13px;color:var(--muted);margin-top:4px">แตะเพื่อถ่ายจอเครื่องชั่ง</span></button>
+  <button class="btn btn-ghost btn-block" id="sp-manual" style="margin-top:8px">หรือกรอกเอง</button>
+  <input type="file" accept="image/*" capture="environment" id="sp-file" style="display:none">`;
+  const file=box.querySelector("#sp-file");
+  box.querySelector("#sp-pick").onclick=()=>file.click();
+  box.querySelector("#sp-manual").onclick=onManual;
+  file.onchange=e=>{
+    const f=e.target.files[0];if(!f)return;const r=new FileReader();
+    r.onload=ev=>{const m=ev.target.result.match(/^data:(.*?);base64,(.*)$/);imgState.mime=m[1];imgState.b64=m[2];
+      box.innerHTML=`<div style="text-align:center"><img src="${ev.target.result}" style="max-height:180px;border-radius:12px;border:2px solid var(--indigo)"><div class="row" style="margin-top:10px"><button class="btn btn-ghost" id="sp-change">เปลี่ยนรูป</button><button class="btn btn-primary" id="sc-analyze" style="flex:1">🤖 อ่านค่าด้วย AI</button></div></div>`;
+      box.querySelector("#sp-change").onclick=()=>renderScalePicker(box,imgState,onManual,onAnalyze);
+      box.querySelector("#sc-analyze").onclick=onAnalyze;
+    };r.readAsDataURL(f);
+  };
+}
+
+/* ===================== WORKOUT ===================== */
+function viewWorkout(){
+  const p=LS.get(K.profile,null), plan=LS.get(K.plan,null);
+  if(!plan)return `<div class="card"><h3>ยังไม่มีแผนออกกำลังกาย</h3>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">ให้ AI สร้างแผน 7 วันตามเป้าหมาย ระบบติดตามเองว่าวันนี้คือวันที่เท่าไหร่ของแผน ตามวันที่จริง</div>
+    <button class="btn btn-primary btn-block" id="gen">🤖 สร้างแผนด้วย AI</button>
+    <div class="err" id="gen-err" style="margin-top:8px"></div></div>`;
+  const start=new Date(plan.createdAt+"T00:00:00"),cur=new Date(state.date+"T00:00:00");
+  const di=((Math.floor((cur-start)/86400000)%7)+7)%7, today=plan.days?.[di];
+  const done=LS.get(K.workout(state.date),[]);
+  let html=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center">
+    <div><div class="lbl">โปรแกรมวันนี้</div><div style="font-size:20px;font-weight:800;color:var(--indigo)">${today?.day||"วันพัก"}</div><div style="font-size:13px;color:var(--muted)">${today?.focus||"พักฟื้นกล้ามเนื้อ"}</div></div>
+    <div style="text-align:center;background:var(--indigo-bg);border-radius:12px;padding:8px 12px"><div style="font-size:10px;color:var(--indigo-l)">วันที่ในแผน</div><div style="font-size:22px;font-weight:800;color:var(--indigo)">${di+1}<span style="font-size:12px">/7</span></div></div>
+  </div></div>`;
+  if(today?.exercises?.length){
+    html+=`<div class="card">${today.exercises.map(ex=>{const d=done.includes(ex.name);return `<div class="foodrow" style="opacity:${d?.5:1}">
+      <button data-ex="${esc(ex.name)}" style="width:24px;height:24px;border-radius:8px;border:${d?"none":"2px solid #D1D5DB"};background:${d?"var(--green)":"#fff"};color:#fff;cursor:pointer;font-size:14px;flex-shrink:0">${d?"✓":""}</button>
+      <div style="flex:1"><div style="font-size:14px;font-weight:600;${d?"text-decoration:line-through":""}">${esc(ex.name)}</div><div class="meta">${esc(ex.muscle||"")}</div></div>
+      <div style="font-size:13px;font-weight:700;color:var(--indigo)">${esc(ex.sets||"")}</div></div>`;}).join("")}
+      <div style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center">ทำแล้ว ${done.length}/${today.exercises.length} ท่า</div></div>`;
+  }else html+=`<div class="hint"><div class="ic">😌</div><div>วันนี้เป็นวันพัก พักผ่อนให้เต็มที่</div></div>`;
+  html+=`<button class="btn btn-ghost btn-block" id="regen" style="margin-top:4px">สร้างแผนใหม่</button>`;
+  return html;
+}
+function bindWorkout(){
+  const gen=document.getElementById("gen");if(gen)gen.onclick=()=>generatePlan("gen-err");
+  const regen=document.getElementById("regen");if(regen)regen.onclick=()=>{if(confirm("สร้างแผนใหม่? แผนเดิมจะถูกลบ")){LS.del(K.plan);render();}};
+  document.querySelectorAll("[data-ex]").forEach(b=>b.onclick=()=>{const n=b.dataset.ex;let done=LS.get(K.workout(state.date),[]);done=done.includes(n)?done.filter(x=>x!==n):[...done,n];LS.set(K.workout(state.date),done);render();});
+}
+async function generatePlan(errId){
+  const p=LS.get(K.profile,null);
+  const btn=document.getElementById("gen");if(btn){btn.textContent="🤖 กำลังสร้าง...";btn.disabled=true;}
+  try{
+    const txt=await callClaude({max_tokens:1500,messages:[{role:"user",content:`สร้างแผนออกกำลังกาย 7 วัน สำหรับ เพศ${p.gender==="male"?"ชาย":"หญิง"} อายุ${p.age} เป้าหมาย${GOALS.find(g=>g.id===p.goal)?.label||"ลดไขมัน"}\nตอบ JSON อย่างเดียว: {"days":[{"day":"วันที่ 1","focus":"โฟกัส","exercises":[{"name":"ท่า","sets":"3x12","muscle":"กล้ามเนื้อ"}]}]} ครบ 7 วัน มีวันพัก (exercises:[] ถ้าพัก)`}]});
+    const r=parseJSON(txt);
+    LS.set(K.plan,{days:r.days,createdAt:todayStr()});render();toast("สร้างแผนสำเร็จ");
+  }catch(e){setErr(errId,aiError(e));if(btn){btn.textContent="🤖 สร้างแผนด้วย AI";btn.disabled=false;}}
+}
+
+/* ===================== MORE (profile/summary/export/key) ===================== */
+function viewMore(){
+  const p=LS.get(K.profile,null), t=computeTargets(p,latestBody()), lb=latestBody();
+  const hasKey=!!getKey();
+  // weekly summary
+  let weekCal=0,daysLogged=0;
+  for(let i=0;i<7;i++){const d=addDays(todayStr(),-i);const fl=LS.get(K.food(d),[]);if(fl.length){weekCal+=fl.reduce((a,f)=>a+f.cal,0);daysLogged++;}}
+  const avg=daysLogged?Math.round(weekCal/daysLogged):0;
+  const body=LS.get(K.body,[]).sort((a,b)=>a.date<b.date?-1:1);
+  const wDiff=body.length>=2?(body[body.length-1].weight-body[0].weight):null;
+  return `
+  <div class="card"><div class="lbl" style="margin-bottom:10px">🔑 API Key สำหรับฟีเจอร์ AI</div>
+    <div class="keystatus ${hasKey?"ok":"no"}" style="margin-bottom:8px">${hasKey?"● เชื่อมต่อแล้ว":"○ ยังไม่ได้ใส่ key — ฟีเจอร์ AI ปิดอยู่"}</div>
+    <input id="apikey" type="password" placeholder="วาง sk-ant-... ที่นี่" value="${getKey()}" style="margin-bottom:8px">
+    <div class="row"><button class="btn btn-primary" id="savekey" style="flex:1">บันทึก Key</button>${hasKey?'<button class="btn btn-ghost" id="testkey">ทดสอบ</button>':""}</div>
+    <div class="small" style="margin-top:8px">key เก็บในเครื่องนี้เท่านั้น (localStorage) ไม่ส่งไปที่อื่น</div>
+    <div class="err" id="key-msg" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card"><div class="lbl" style="margin-bottom:10px">📊 สรุป 7 วันล่าสุด</div>
+    <div class="statrow">
+      ${stat("เฉลี่ย/วัน",avg,"kcal",true)}
+      ${stat("เป้าหมาย",t.cal,"kcal")}
+      ${stat("วันที่บันทึก",daysLogged,"/7")}
+    </div>
+    ${wDiff!=null?`<div style="margin-top:10px;font-size:13px;color:${wDiff<=0?"var(--green)":"var(--red)"};font-weight:600">${wDiff<=0?"▼":"▲"} น้ำหนัก ${Math.abs(wDiff).toFixed(1)} kg ตั้งแต่เริ่มบันทึก</div>`:""}
+    ${avg?`<div class="small" style="margin-top:6px">${avg<=t.cal?"✅ เฉลี่ยอยู่ในเป้า กำลังไปได้ดี":"⚠️ เฉลี่ยเกินเป้า ลองปรับมื้อเย็นลงนิดหน่อย"}</div>`:""}
+  </div>
+
+  <div class="card"><div class="lbl" style="margin-bottom:10px">เป้าหมายโภชนาการ/วัน ${lb?.bmr?'<span style="color:var(--green);font-size:10px">· ใช้ BMR จากเครื่องชั่ง</span>':""}</div>
+    <div class="statrow">${stat("BMR",t.bmr,"kcal")}${stat("TDEE",t.tdee,"kcal")}${stat("เป้าหมาย",t.cal,"kcal",true)}</div>
+    <div class="statrow" style="margin-top:8px">${stat("โปรตีน",t.protein,"g")}${stat("คาร์บ",t.carb,"g")}${stat("ไขมัน",t.fat,"g")}</div>
+    <div class="small" style="margin-top:8px">โปรตีนตั้งจาก lean mass ${t.lean}kg ×2.4g เพื่อรักษากล้ามเนื้อ</div>
+  </div>
+
+  <div class="card"><div class="lbl" style="margin-bottom:12px">แก้ไขข้อมูล & เป้าหมาย</div><div id="pform"></div></div>
+
+  <div class="card"><div class="lbl" style="margin-bottom:10px">⭐ รายการโปรด (${LS.get(K.fav,[]).length})</div>
+    <div id="favmgr">${LS.get(K.fav,[]).map((f,i)=>`<span class="favchip">${esc(f.name)} <span class="fc">${f.cal}</span> <span data-favdel="${i}" style="color:var(--red);font-weight:700;margin-left:4px">×</span></span>`).join("")||'<div class="small">ยังไม่มี — บันทึกได้ตอนเพิ่มอาหาร</div>'}</div>
+  </div>
+
+  <div class="card"><div class="lbl" style="margin-bottom:10px">💾 ข้อมูล</div>
+    <button class="btn btn-primary btn-block" id="export" style="margin-bottom:8px">📤 ส่งออกข้อมูลทั้งหมด (สำรอง)</button>
+    <button class="btn btn-ghost btn-block" id="import">📥 นำเข้าข้อมูลจากไฟล์</button>
+    <input type="file" accept="application/json" id="importfile" style="display:none">
+  </div>
+  <div style="text-align:center;color:var(--faint);font-size:11px;padding:8px 0 20px">FitLog · ข้อมูลเก็บในเครื่องนี้</div>`;
+}
+function bindMore(){
+  // key
+  document.getElementById("savekey").onclick=()=>{LS.set(K.key,document.getElementById("apikey").value.trim());render();toast("บันทึก key แล้ว");};
+  const tk=document.getElementById("testkey");if(tk)tk.onclick=async()=>{setErr("key-msg","");tk.textContent="...";try{await callClaude({max_tokens:10,messages:[{role:"user",content:"hi"}]});document.getElementById("key-msg").style.color="var(--green)";setErr("key-msg","✅ Key ใช้งานได้");}catch(e){setErr("key-msg",aiError(e));}tk.textContent="ทดสอบ";};
+  // profile form
+  renderProfileForm(document.getElementById("pform"),LS.get(K.profile,null),"บันทึก",(np)=>{LS.set(K.profile,np);render();toast("บันทึกแล้ว");});
+  // fav delete
+  document.querySelectorAll("[data-favdel]").forEach(b=>b.onclick=()=>{const fv=LS.get(K.fav,[]);fv.splice(+b.dataset.favdel,1);LS.set(K.fav,fv);render();});
+  // export
+  document.getElementById("export").onclick=exportData;
+  document.getElementById("import").onclick=()=>document.getElementById("importfile").click();
+  document.getElementById("importfile").onchange=importData;
+}
+function exportData(){
+  const dump={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k.startsWith("fitlog_"))dump[k]=localStorage.getItem(k);}
+  const blob=new Blob([JSON.stringify(dump,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="fitlog-backup-"+todayStr()+".json";a.click();
+  toast("ส่งออกข้อมูลแล้ว");
+}
+function importData(e){
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=ev=>{try{const dump=JSON.parse(ev.target.result);if(!confirm("นำเข้าข้อมูลจะเขียนทับข้อมูลปัจจุบัน ยืนยัน?"))return;Object.keys(dump).forEach(k=>{if(k.startsWith("fitlog_"))localStorage.setItem(k,dump[k]);});render();toast("นำเข้าข้อมูลสำเร็จ");}catch{toast("ไฟล์ไม่ถูกต้อง");}};
+  r.readAsText(f);
+}
+
+/* ===================== COACH ===================== */
+let coachHistory=[], coachMsgs=[];
+function openCoach(){
+  if(!getKey()){showSheet(`<div class="handle"></div><div style="font-weight:800;font-size:17px;margin-bottom:8px">เทรนเนอร์ AI</div><div class="warn">ฟีเจอร์นี้ต้องใส่ API key ก่อน — ไปที่แท็บ "เพิ่มเติม" → 🔑 API Key</div><button class="btn-save" id="gokey" style="margin-top:14px">ไปใส่ key</button>`);document.getElementById("gokey").onclick=()=>{closeSheet();state.tab="more";render();};return;}
+  if(!coachMsgs.length)coachMsgs=[{role:"ai",text:"สวัสดีครับ ผมเห็นข้อมูลทั้งหมดของคุณแล้ว 👀\nมีอะไรให้ช่วยปรับแผนไหม? เช่น พรุ่งนี้มีงานเลี้ยง, วันนี้กินเกิน, หรืออยากรู้ว่าตอนนี้ตรงเป้าหรือยัง"}];
+  renderCoach();
+}
+function renderCoach(){
+  const quick=["พรุ่งนี้มีงานเลี้ยง 🎉","วันนี้กินเกินไปแล้ว 😅","ตอนนี้ตรงเป้าไหม?","ขอเมนูเย็นนี้หน่อย"];
+  showSheet(`<div class="handle"></div>
+    <div class="chatwrap">
+      <div class="chathead"><div class="avatar">💬</div><div><div style="font-weight:800;font-size:15px">เทรนเนอร์ AI</div><div style="font-size:11px;color:var(--green)">● เห็นข้อมูลจริงของคุณทั้งหมด</div></div>
+        <button id="coach-close" style="margin-left:auto;background:var(--bg);border:none;border-radius:50%;width:30px;height:30px;font-size:16px;color:var(--muted);cursor:pointer">×</button></div>
+      <div class="chatbody" id="chatbody">${coachMsgs.map(m=>bubble(m)).join("")}</div>
+      ${coachMsgs.length<=1?`<div class="quick">${quick.map(q=>`<button data-q="${esc(q)}">${q}</button>`).join("")}</div>`:""}
+      <div class="chatinput"><input id="coach-input" placeholder="ถามเทรนเนอร์..."><button class="sendbtn" id="coach-send">➤</button></div>
+    </div>`,true);
+  const body=document.getElementById("chatbody");body.scrollTop=body.scrollHeight;
+  document.getElementById("coach-close").onclick=closeSheet;
+  document.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>coachSend(b.dataset.q));
+  document.getElementById("coach-send").onclick=()=>coachSend(document.getElementById("coach-input").value);
+  document.getElementById("coach-input").onkeydown=e=>{if(e.key==="Enter")coachSend(e.target.value);};
+}
+function bubble(m){return `<div class="msg ${m.role==="user"?"user":"ai"}">${m.role==="ai"?'<div class="avatar" style="width:28px;height:28px;font-size:13px">💬</div>':""}<div class="bubble">${esc(m.text)}</div></div>`;}
+function buildContext(){
+  const p=LS.get(K.profile,null), t=computeTargets(p,latestBody()), lb=latestBody();
+  const d=state.date, todayFood=LS.get(K.food(d),[]);
+  const tt=todayFood.reduce((a,f)=>({c:a.c+f.cal,p:a.p+f.protein,cb:a.cb+f.carb,ft:a.ft+f.fat}),{c:0,p:0,cb:0,ft:0});
+  let weekCal=0,days=0;for(let i=0;i<7;i++){const dd=addDays(d,-i);const fl=LS.get(K.food(dd),[]);if(fl.length){weekCal+=fl.reduce((a,f)=>a+f.cal,0);days++;}}
+  const avg=days?Math.round(weekCal/days):0;
+  let planLine="ยังไม่มีแผน";const plan=LS.get(K.plan,null);
+  if(plan){const s=new Date(plan.createdAt+"T00:00:00"),c=new Date(d+"T00:00:00");const di=((Math.floor((c-s)/86400000)%7)+7)%7;const tp=plan.days?.[di];const wl=LS.get(K.workout(d),[]);planLine=`วันที่ ${di+1}/7 - ${tp?.focus||"วันพัก"} (ทำแล้ว ${wl.length} ท่า)`;}
+  const todayList=todayFood.map(f=>`${MEALS.find(m=>m.id===f.meal)?.label}: ${f.name} ${f.cal}kcal`).join("; ")||"ยังไม่ได้บันทึก";
+  return `[ข้อมูลผู้ใช้ ณ ${fmtDate(d)}]
+โปรไฟล์: ${p.gender==="male"?"ชาย":"หญิง"} อายุ ${p.age} สูง ${p.height}cm
+ปัจจุบัน: น้ำหนัก ${lb?.weight||p.weight}kg, ไขมัน ${lb?.bodyFat!=null?lb.bodyFat+"%":"-"}, กล้ามเนื้อ ${lb?.muscleMass||"-"}kg, BMR ${t.bmr}
+เป้าหมาย: น้ำหนัก ${p.targetWeight||"-"}kg, ไขมัน ${p.targetBf||"-"}%
+แคลอรี่เป้าหมาย: ${t.cal} kcal/วัน (P${t.protein} C${t.carb} F${t.fat}) | TDEE ${t.tdee}
+วันนี้กินไปแล้ว ${tt.c}/${t.cal} kcal (เหลือ ${t.cal-tt.c}) | P${tt.p} C${tt.cb} F${tt.ft}
+มื้อวันนี้: ${todayList}
+ค่าเฉลี่ย 7 วัน: ${avg} kcal/วัน
+แผนออกกำลังวันนี้: ${planLine}`;
+}
+async function coachSend(text){
+  text=(text||"").trim();if(!text)return;
+  coachMsgs.push({role:"user",text});
+  const input=document.getElementById("coach-input");if(input)input.value="";
+  renderCoach();
+  const body=document.getElementById("chatbody");
+  body.insertAdjacentHTML("beforeend",`<div class="msg ai" id="typing"><div class="avatar" style="width:28px;height:28px;font-size:13px">💬</div><div class="dots"><span></span><span></span><span></span></div></div>`);
+  body.scrollTop=body.scrollHeight;
+  try{
+    const sys=`คุณคือเทรนเนอร์ส่วนตัวมืออาชีพด้านลดไขมัน/ปั้นหุ่น พูดไทยเป็นกันเองแต่แม่นยำ
+คุณเห็นข้อมูลจริงของลูกค้าด้านล่าง ใช้ตัวเลขจริงเสมอ ห้ามเดา
+เมื่อลูกค้าขอปรับแผน (งานเลี้ยง/กินเกิน/ออกกำลังไม่ได้) ให้ปรับแบบกระทบแผนเดิมน้อยที่สุด โดยใช้: มองค่าเฉลี่ยทั้งสัปดาห์ไม่ใช่รายวัน, calorie banking (ลดวันอื่นเก็บโควต้า), ชดเชยด้วย cardio/เดินเพิ่ม, เลื่อนวันในแผน 7 วัน
+ตอบกระชับ เป็นขั้นตอน บอกตัวเลขชัดเจน อย่ายาวเกินจำเป็น
+
+${buildContext()}`;
+    coachHistory.push({role:"user",content:text});
+    const reply=await callClaude({max_tokens:1000,system:sys,messages:coachHistory.slice(-8)});
+    coachHistory.push({role:"assistant",content:reply});
+    coachMsgs.push({role:"ai",text:reply});
+  }catch(e){coachMsgs.push({role:"ai",text:"❌ "+aiError(e)});}
+  renderCoach();
+}
+
+/* ===================== PROFILE FORM ===================== */
+function viewSetup(){
+  return `<div class="setup-head"><div class="logo">📒</div><div class="ttl">FitLog</div><div class="sub">เทรนเนอร์ส่วนตัวที่จำทุกอย่างให้คุณ</div></div>
+  <div class="scroll" style="padding-bottom:40px"><div id="pform"></div></div>`;
+}
+function bindSetup(){renderProfileForm(document.getElementById("pform"),null,"เริ่มใช้งาน",(np)=>{LS.set(K.profile,np);render();});}
+function renderProfileForm(box,initial,submitLabel,onSave){
+  const lb=latestBody();
+  const p=initial||{gender:"male",age:"",weight:"",height:"",activity:1.375,goal:"lose",targetWeight:"",targetBf:""};
+  box.innerHTML=`
+    <div class="flbl">เพศ</div>
+    <div class="seg" id="pf-gender"><button data-g="male" class="${p.gender==="male"?"on":""}">ชาย</button><button data-g="female" class="${p.gender==="female"?"on":""}">หญิง</button></div>
+    <div class="row" style="margin-top:12px"><div class="field"><div class="flbl">อายุ</div><input id="pf-age" type="number" inputmode="decimal" value="${p.age||""}"></div>
+      <div class="field"><div class="flbl">${lb?"น้ำหนัก(เครื่องชั่ง)":"น้ำหนัก(kg)"}</div><input id="pf-weight" type="number" inputmode="decimal" value="${lb?lb.weight:(p.weight||"")}" ${lb?"disabled":""}></div>
+      <div class="field"><div class="flbl">ส่วนสูง(cm)</div><input id="pf-height" type="number" inputmode="decimal" value="${p.height||""}"></div></div>
+    <div style="margin-top:12px"><div class="flbl">ระดับกิจกรรม</div><select id="pf-activity">${ACTIVITY.map(a=>`<option value="${a.id}" ${+p.activity===a.id?"selected":""}>${a.label}</option>`).join("")}</select></div>
+    <div style="margin-top:12px"><div class="flbl">เป้าหมายหลัก</div><div class="seg" id="pf-goal">${GOALS.map(g=>`<button data-goal="${g.id}" class="${p.goal===g.id?"on":""}">${g.label}</button>`).join("")}</div></div>
+    <div class="goalbox" style="margin-top:12px"><div class="gt">🎯 เป้าหมายแบบละเอียด (ตั้งได้ทั้งคู่)</div>
+      <div class="row"><div class="field"><div class="flbl">น้ำหนักเป้าหมาย(kg)</div><input id="pf-tw" type="number" inputmode="decimal" value="${p.targetWeight||""}"></div>
+      <div class="field"><div class="flbl">% ไขมันเป้าหมาย</div><input id="pf-tbf" type="number" inputmode="decimal" value="${p.targetBf||""}"></div></div></div>
+    <div class="err" id="pf-err" style="margin-top:10px"></div>
+    <button class="btn-save" id="pf-submit">${submitLabel}</button>`;
+  let sel={gender:p.gender,goal:p.goal};
+  box.querySelectorAll("#pf-gender button").forEach(b=>b.onclick=()=>{box.querySelectorAll("#pf-gender button").forEach(x=>x.classList.remove("on"));b.classList.add("on");sel.gender=b.dataset.g;});
+  box.querySelectorAll("#pf-goal button").forEach(b=>b.onclick=()=>{box.querySelectorAll("#pf-goal button").forEach(x=>x.classList.remove("on"));b.classList.add("on");sel.goal=b.dataset.goal;});
+  box.querySelector("#pf-submit").onclick=()=>{
+    const age=+box.querySelector("#pf-age").value, height=+box.querySelector("#pf-height").value;
+    const weight=lb?lb.weight:+box.querySelector("#pf-weight").value;
+    if(!age||!height){setErr("pf-err","กรอกอายุและส่วนสูง");return;}
+    if(!lb&&!weight){setErr("pf-err","กรอกน้ำหนัก หรือสแกนเครื่องชั่งในแท็บ ‘ร่างกาย’");return;}
+    onSave({gender:sel.gender,goal:sel.goal,age,height,weight,activity:+box.querySelector("#pf-activity").value,
+      targetWeight:+box.querySelector("#pf-tw").value||null,targetBf:+box.querySelector("#pf-tbf").value||null});
+  };
+}
+
+/* ===================== sheet / utils ===================== */
+function showSheet(html,isCoach){
+  closeSheet();
+  const o=document.createElement("div");o.className="overlay";o.id="overlay";
+  o.innerHTML=`<div class="sheet" id="sheet">${html}</div>`;
+  o.onclick=e=>{if(e.target===o)closeSheet();};
+  document.body.appendChild(o);
+}
+function closeSheet(){const o=document.getElementById("overlay");if(o)o.remove();}
+function setErr(id,msg){const e=document.getElementById(id);if(e)e.textContent=msg;}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2000);}
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function aiError(e){const m=String(e.message||e);if(m.includes("NO_KEY"))return "ยังไม่ได้ใส่ API key (ไปที่แท็บ เพิ่มเติม)";if(m.includes("401"))return "API key ไม่ถูกต้อง ตรวจสอบอีกครั้ง";if(m.includes("429"))return "ใช้งานเกินโควต้า/เครดิตหมด ลองอีกครั้งภายหลัง";if(m.includes("400"))return "คำขอผิดพลาด ลองรูปอื่นหรือใหม่อีกครั้ง";return "เกิดข้อผิดพลาด: "+m.slice(0,80);}
+function checkWeighReminder(){
+  if(state.tab!=="body")return;
+  const body=LS.get(K.body,[]);const last=body.length?[...body].sort((a,b)=>a.date<b.date?1:-1)[0].date:null;
+  if(last!==todayStr()&&isToday(state.date)){/* gentle hint handled by empty state */}
+}
+
+render();
+</script>
+</body>
+</html>
