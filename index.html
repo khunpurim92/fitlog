@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-title" content="FitLog">
 <meta name="theme-color" content="#0E0E16">
 <title>FitLog</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -650,7 +653,9 @@ function computeAdaptiveTdee(endDate){
   // น้ำหนักลด = ร่างกายใช้มากกว่าที่กิน → TDEE สูงกว่า intake
   const burn=avgBurn(endDate,TDEE_ADJ.WINDOW);
   const kgPerDay=wt.perWeek/7;
-  const impliedTdee=Math.round(intake.avg+burn-(kgPerDay*KCAL_PER_KG));
+  // TDEE พื้นฐาน (ไม่รวมออกกำลังที่บันทึก) = กิน − ออกกำลัง − พลังงานที่ร่างกายเก็บ/ดึงออก
+  // (เดิมบวก burn เข้าไป ทำให้ค่าเกินจริง 2 เท่าของแคลออกกำลัง)
+  const impliedTdee=Math.round(intake.avg-burn-(kgPerDay*KCAL_PER_KG));
 
   // เบรกชั้น 2: เพดาน ±20% จากสูตร
   const lo=Math.round(formulaTdee*(1-TDEE_ADJ.MAX_DEVIATE));
@@ -918,15 +923,15 @@ function getDiagram(name){
   if(/น่อง|calf/.test(n))return D.calfraise;
   return null;
 }
-const MODEL="claude-sonnet-4-5";
+const MODEL="claude-sonnet-5";
 
 /* ── storage ── */
 const LS={
   get(k,fb){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):fb;}catch{return fb;}},
-  set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){console.error(e);}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){console.error(e);window.__lsFailAt=Date.now();try{toast("⚠️ บันทึกไม่สำเร็จ — พื้นที่เก็บข้อมูลในเครื่องเต็ม กรุณาสำรองข้อมูล (เพิ่มเติม → สำรอง) แล้วลบข้อมูลเก่า");}catch(_){}return false;}},
   del(k){localStorage.removeItem(k);}
 };
-const K={profile:"fl_profile",key:"fl_key",body:"fl_body",plan:"fl_plan",fav:"fl_fav",food:d=>"fl_food_"+d,workout:d=>"fl_wk_"+d,cardio:d=>"fl_cardio_"+d,exlog:d=>"fl_exlog_"+d,exhist:"fl_exhist",dcal:d=>"fl_dcal_"+d,water:d=>"fl_water_"+d,fast:"fl_fast",override:"fl_override",tdeeAdj:"fl_tdee_adj",mealTpl:"fl_meal_tpl",theme:"fl_theme",foodDB:"fl_food_db",journal:d=>"fl_journal_"+d};
+const K={profile:"fl_profile",key:"fl_key",body:"fl_body",plan:"fl_plan",fav:"fl_fav",food:d=>"fl_food_"+d,workout:d=>"fl_wk_"+d,cardio:d=>"fl_cardio_"+d,exlog:d=>"fl_exlog_"+d,exhist:"fl_exhist",dcal:d=>"fl_dcal_"+d,water:d=>"fl_water_"+d,fast:"fl_fast",override:"fl_override",tdeeAdj:"fl_tdee_adj",mealTpl:"fl_meal_tpl",theme:"fl_theme",foodDB:"fl_food_db",journal:d=>"fl_journal_"+d,coachMsgs:"fl_coach_msgs",coachHist:"fl_coach_hist",coachMemo:"fl_coach_memo"};
 
 /* ── date ── */
 const todayStr=()=>new Date().toLocaleDateString("sv-SE");
@@ -1100,15 +1105,20 @@ async function callClaude({system,messages,max_tokens=1200}){
   const key=getKey();
   if(!key)throw new Error("NO_KEY");
   let res;
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),90000);
   try{
     res=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",
+      method:"POST",signal:ctrl.signal,
       headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
       body:JSON.stringify({model:MODEL,max_tokens,...(system?{system}:{}),messages})
     });
   }catch(netErr){
+    clearTimeout(timer);
+    if(netErr&&netErr.name==="AbortError")throw new Error("TIMEOUT");
     throw new Error("NETWORK:"+(netErr.message||netErr));
   }
+  clearTimeout(timer);
   if(!res.ok){
     const t=await res.text();
     let detail=t;
@@ -1153,6 +1163,8 @@ function extractJSON(txt){
 function aiError(e){
   const m=String(e.message||e);
   if(m.includes("NO_KEY"))return"⚠️ ยังไม่ได้ใส่ API key (ไปที่ เพิ่มเติม → 🔑 API Key)";
+  if(m==="TIMEOUT")return"⚠️ AI ตอบช้าเกิน 90 วินาที (เน็ตช้าหรือเซิร์ฟเวอร์หนัก) — ลองใหม่อีกครั้ง";
+  if(m.startsWith("NETWORK:")&&typeof navigator!=="undefined"&&navigator.onLine===false)return"📴 ออฟไลน์อยู่ — ฟีเจอร์ AI ต้องใช้อินเทอร์เน็ต (บันทึกแบบกรอกเอง/ฐานข้อมูลของคุณ/จับเวลาพัก ใช้ได้ปกติ)";
   if(m.startsWith("NETWORK:"))return"⚠️ เชื่อมต่อ API ไม่ได้ (network/CORS) — เช็คเน็ต หรือลองเปิดในเบราว์เซอร์: "+m.slice(8,90);
   if(m.startsWith("EMPTY:"))return"⚠️ "+m.slice(6);
   if(m.startsWith("PARSE:"))return"⚠️ "+m.slice(6);
@@ -1168,7 +1180,58 @@ function aiError(e){
 
 /* ── app state ── */
 let state={tab:"home",date:todayStr()};
-let coachHistory=[],coachMsgs=[],coachPendingImages=[];
+let coachHistory=LS.get(K.coachHist,[]),coachMsgs=LS.get(K.coachMsgs,[]),coachPendingImages=[];
+/* เก็บแชทโค้ชถาวร — ไม่เก็บรูป (กินพื้นที่มาก) เก็บแค่จำนวนรูปไว้แสดง */
+function saveCoach(){
+  const msgs=coachMsgs.slice(-60).map(m=>({...m,images:Array.isArray(m.images)?m.images.length:m.images}));
+  const hist=coachHistory.slice(-40).map(x=>Array.isArray(x.content)
+    ?{role:x.role,content:x.content.map(b=>b.type==="image"?{type:"text",text:"[ผู้ใช้แนบรูปไว้ในข้อความนี้ — ตอนนี้ไม่เห็นรูปแล้ว]"}:b)}
+    :x);
+  LS.set(K.coachMsgs,msgs);LS.set(K.coachHist,hist);
+}
+function clearCoachChat(){coachMsgs=[];coachHistory=[];LS.del(K.coachMsgs);LS.del(K.coachHist);}
+/* สมุดโค้ช — สิ่งที่โค้ชรู้เกี่ยวกับผู้ใช้ + เป้าพฤติกรรมรายสัปดาห์ (โค้ชจดเองผ่าน <MEMO>) */
+function getMemo(){const m=LS.get(K.coachMemo,null)||{};return{facts:m.facts||[],weeklyGoal:m.weeklyGoal||null,goalLog:m.goalLog||[]};}
+function applyMemo(mj){
+  const m=getMemo(),changes=[];if(!mj||typeof mj!=="object")return changes;
+  (mj.facts_add||[]).forEach(f=>{f=String(f).trim().slice(0,140);if(f&&!m.facts.includes(f)){m.facts.push(f);changes.push("+ "+f);}});
+  (mj.facts_remove||[]).forEach(f=>{f=String(f).trim();const i=m.facts.findIndex(x=>x===f||(f.length>3&&x.includes(f)));if(i>=0){changes.push("− "+m.facts[i]);m.facts.splice(i,1);}});
+  if(m.facts.length>30)m.facts=m.facts.slice(-30);
+  if(mj.goal_result&&m.weeklyGoal){m.goalLog.push({date:todayStr(),goal:m.weeklyGoal.text,result:String(mj.goal_result).slice(0,160)});m.goalLog=m.goalLog.slice(-8);changes.push("📊 ผลเป้า: "+mj.goal_result);}
+  if(mj.weekly_goal){m.weeklyGoal={text:String(mj.weekly_goal).slice(0,160),setDate:todayStr()};changes.push("🎯 เป้าสัปดาห์: "+m.weeklyGoal.text);}
+  LS.set(K.coachMemo,m);return changes;
+}
+function lifestyleLine(p){
+  const l=p?.lifestyle||{},o=[];
+  if(l.likes)o.push("ชอบกิน: "+l.likes);
+  if(l.dislikes)o.push("ไม่กิน/แพ้: "+l.dislikes);
+  if(l.eatStyle)o.push("อาหารส่วนใหญ่มาจาก: "+l.eatStyle);
+  if(l.budget)o.push("งบอาหาร: "+l.budget);
+  if(l.weakness)o.push("จุดอ่อน: "+l.weakness);
+  if(l.schedule)o.push("ตารางชีวิต: "+l.schedule);
+  return o.join(" | ");
+}
+/* สถิติการทำตามเป้า (ไม่นับวันนี้ เพราะยังไม่จบวัน) */
+function adherenceStats(endDate,days=14){
+  const p=LS.get(K.profile,null);if(!p)return null;
+  const t=computeTargets(p,latestBody());
+  let logged=0,hit=0,over=0,under=0,protHit=0;const dow=[0,1,2,3,4,5,6].map(()=>({n:0,diff:0}));
+  const wkd={n:0,s:0},wke={n:0,s:0};
+  for(let i=1;i<=days;i++){
+    const d=addDays(endDate,-i),f=LS.get(K.food(d),[]);if(!f.length)continue;
+    logged++;
+    const cal=f.reduce((a,x)=>a+(x.cal||0),0),pr=f.reduce((a,x)=>a+(x.protein||0),0);
+    const tg=dayTarget(d,t).cal,diff=cal-tg;
+    if(Math.abs(diff)<=tg*0.1)hit++;else if(diff>0)over++;else under++;
+    if(pr>=t.protein*0.9)protHit++;
+    const wd=new Date(d+"T00:00:00").getDay();dow[wd].n++;dow[wd].diff+=diff;
+    if(wd===0||wd===6){wke.n++;wke.s+=diff;}else{wkd.n++;wkd.s+=diff;}
+  }
+  const names=["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัส","ศุกร์","เสาร์"];let worst=null;
+  dow.forEach((x,i)=>{if(x.n){const a=x.diff/x.n;if(a>150&&(!worst||a>worst.avg))worst={day:names[i],avg:Math.round(a)};}});
+  return{logged,days,hit,over,under,protHit,proteinTarget:t.protein,
+    wkdAvg:wkd.n?Math.round(wkd.s/wkd.n):null,wkeAvg:wke.n?Math.round(wke.s/wke.n):null,worst};
+}
 
 /* ── render root ── */
 function render(){
@@ -1814,7 +1877,7 @@ function bodyAvatarSVG(weight,bf,bmi,gender){
     fatLevel=Math.max(0,Math.min(1,(b-19)/13));
     tier=b<18.5?"under":b<25?"average":"obese";
   }
-  const hue=120-fatLevel*120;
+  const hue=tier==="under"?205:120-fatLevel*120; // ผอมเกินไป = ฟ้า (ไม่ใช่เขียวที่สื่อว่าดี)
   const hx=(h,sa,l)=>{sa/=100;l/=100;const k=n=>(n+h/30)%12,a=sa*Math.min(l,1-l),fn=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return"#"+[fn(0),fn(8),fn(4)].map(v=>Math.round(v*255).toString(16).padStart(2,"0")).join("");};
   const c1=hx(hue,70,58),c2=hx(hue,62,40);
   const F=gender==="female";
@@ -2068,6 +2131,7 @@ function viewFood(){
   h+=insightCard("food");
   // ปุ่มวิเคราะห์อาหาร
   if(food.length){h+=`<button class="btn-save" id="analyze-food" style="margin-bottom:12px;background:linear-gradient(135deg,var(--accent),var(--teal))">🤖 วิเคราะห์และแนะนำมื้อที่เหลือ</button>`;}
+  h+=`<button class="btn btn-ghost btn-block" id="plan-tomorrow" style="margin-bottom:12px">🗓️ ให้โค้ชวางแผนมื้อพรุ่งนี้</button>`;
   MEALS.forEach(m=>{
     const items=food.filter(f=>f.meal===m.id);
     const sub=items.reduce((a,f)=>a+f.cal,0);
@@ -2192,6 +2256,8 @@ function bindTab(){
   }
   if(state.tab==="food"){
     const af=document.getElementById("analyze-food");if(af)af.onclick=openFoodAnalysis;
+    const ptm=document.getElementById("plan-tomorrow");
+    if(ptm)ptm.onclick=()=>{openCoach();if(getKey())coachSend("ช่วยวางแผนมื้ออาหารพรุ่งนี้ทั้งวัน ให้ถึงเป้าแคลและโปรตีน ใช้เมนูที่ผมกินได้จริงตามไลฟ์สไตล์ บอกปริมาณและ kcal คร่าวๆ ต่อมื้อ");};
     document.querySelectorAll("[data-jtag]").forEach(b=>b.onclick=()=>{toggleJournalTag(state.date,b.dataset.jtag);render();});
     const jn=document.getElementById("journal-note");
     if(jn)jn.onblur=()=>setJournalNote(state.date,jn.value);
@@ -2292,7 +2358,7 @@ async function openFoodAnalysis(){
     const mp=mealPriorityEngine(eaten,t);
     const txt=await callClaude({max_tokens:2200,
       system:"คุณคือผู้เชี่ยวชาญด้านโภชนาการ ก่อนตอบให้คิดวิเคราะห์ทีละขั้นตอนเป็นภาษาไทยสั้นๆ ก่อนเสมอ (แตกอาหารเป็นส่วนประกอบ ประเมินปริมาณ/น้ำหนักแต่ละส่วน เทียบกับค่าโภชนาการมาตรฐานที่รู้จัก แล้วรวมยอด) จากนั้นพิมพ์บรรทัด @@@JSON@@@ แล้วตามด้วย JSON เพียงก้อนเดียวทันที ห้ามใส่ markdown code fence ห้ามมีข้อความอื่นหลัง JSON ห้ามใช้เครื่องหมาย {} หรือ [] ในส่วนข้อความคิดวิเคราะห์ก่อนหน้า @@@JSON@@@ เด็ดขาด",
-      messages:[{role:"user",content:`แนะนำเมนูมื้อที่เหลือ โดยต้องทำตามลำดับความสำคัญที่คำนวณไว้แล้วนี้เท่านั้น (ห้ามตัดสินใจเอง แค่เลือกเมนูจริงให้ตรงลำดับ):
+      messages:[{role:"user",content:`แนะนำเมนูมื้อที่เหลือ โดยใช้ลำดับความสำคัญที่คำนวณไว้นี้เป็นกรอบ (ตัวเลขห้ามเปลี่ยน) แต่เลือกเมนูที่ผู้ใช้กินได้จริง หาได้จริง และอิ่มท้อง ตามไลฟ์สไตล์ด้านล่าง:
 ${mp.summary}
 ${mp.fatTight?"⚠️ บังคับ: ต้องเลือกแหล่งโปรตีนไขมันต่ำเท่านั้น":""}
 
@@ -2303,6 +2369,9 @@ ${mp.fatTight?"⚠️ บังคับ: ต้องเลือกแหล�
 โปรตีนขาด: ${mp.proteinGap}g | คาร์บขาด: ${mp.carbGap}g | ไขมันเหลือ: ${mp.fatBudget}g | แคลเหลือ: ${mp.calBudget}kcal
 มื้อที่กินแล้ว: ${mealsDone.join(',')||'ยังไม่มี'}
 มื้อที่เหลือ: ${mealsLeft.join(',')||'ครบแล้ว'}
+ไลฟ์สไตล์ผู้ใช้: ${lifestyleLine(LS.get(K.profile,null))||'ไม่ระบุ'}
+สิ่งที่รู้จากสมุดโค้ช: ${getMemo().facts.join(' | ')||'ไม่มี'}
+ห้ามแนะนำของที่ผู้ใช้ไม่กิน/แพ้ ถ้าเขาซื้อกินเป็นหลัก ให้แนะนำเมนูที่สั่งได้จริงพร้อมวิธีสั่ง (เช่น ขอไข่ดาวไม่ทอดกรอบ ข้าวครึ่งจาน)
 
 สำหรับแต่ละเมนูที่แนะนำ ให้ใส่ "altIfFull" ด้วยเสมอ — ทางเลือกถ้าผู้ใช้อิ่มแล้วกินเมนูเต็มไม่ไหว (เช่น ตัดข้าว/ลดปริมาณ แต่ยังได้โปรตีนตามลำดับความสำคัญ)
 ปิดท้ายด้วย JSON รูปแบบนี้: {"analysis":"สรุปสั้นๆ 1-2 ประโยค","suggestions":[{"meal":"ชื่อมื้อ","menu":"ชื่อเมนูเฉพาะ","cal":0,"protein":0,"carb":0,"fat":0,"reason":"เหตุผล 1 ประโยค อ้างอิงลำดับความสำคัญ","altIfFull":"ทางเลือกถ้าอิ่มแล้ว พร้อม kcal โดยประมาณ"}],"warning":"คำเตือน ถ้ามี หรือ null","tip":"เคล็ดลับ 1 ประโยค"}`}]});
@@ -3276,7 +3345,8 @@ function viewWorkout(){
       let totalVol=0,totalSets=0,doneSets=0;
       today.exercises.forEach(ex=>{
         const lg=exlog[ex.name];
-        if(lg?.sets){lg.sets.forEach(st=>{totalSets++;if(st.done)doneSets++;totalVol+=(+st.kg||0)*(+st.reps||0);});}
+        const exDone=(done||[]).some(x=>(x&&x.name?x.name:x)===ex.name);
+        if(lg?.sets){lg.sets.forEach(st=>{totalSets++;if(st.done||exDone)doneSets++;totalVol+=(+st.kg||0)*(+st.reps||0);});}
       });
       const wkBody0=latestBodyMerged();
       const est0=estimateWeightKcal(today.exercises,done,wkBody0?.weight??p?.weight);
@@ -3612,20 +3682,82 @@ function bindWorkout(){
 }
 
 /* บันทึกน้ำหนัก/reps แบบรายเซ็ต (S1-S4) */
+/* ══════════════════════════════════════
+   ฟีเจอร์เวท: แนะนำน้ำหนักครั้งถัดไป + จับเวลาพัก
+══════════════════════════════════════ */
+/* Double progression: ทำครบช่วงบนทุกเซ็ต → เพิ่มน้ำหนัก / อยู่ในช่วง → น้ำหนักเดิม +1 ครั้ง / ต่ำกว่าช่วง → คงน้ำหนัก */
+function suggestNext(name,last,repMin,repMax){
+  const ls=(last?.sets||[]).filter(s=>+s.kg>0&&+s.reps>0);
+  if(!ls.length)return null;
+  const topKg=Math.max(...ls.map(s=>+s.kg));
+  const work=ls.filter(s=>+s.kg===topKg);
+  const minR=Math.min(...work.map(s=>+s.reps)),maxR=Math.max(...work.map(s=>+s.reps));
+  const isDb=/dumbbell|ดัมเบล|\bdb\b/i.test(name||"");
+  const step=isDb?2:(topKg<20?1:2.5);
+  const r5=v=>Math.round(v*2)/2;
+  if(minR>=repMax)return{kg:r5(topKg+step),reps:repMin,action:"up",
+    reason:`ครั้งก่อนทำครบ ${repMax} ครั้งทุกเซ็ตที่ ${topKg}kg → เพิ่มน้ำหนัก +${step}kg แล้วเริ่มที่ ${repMin} ครั้ง`};
+  if(minR>=repMin){const nr=Math.min(repMax,minR+1);return{kg:topKg,reps:nr,action:"reps",
+    reason:`ครั้งก่อนได้ ${minR===maxR?minR:minR+"-"+maxR} ครั้งที่ ${topKg}kg → น้ำหนักเดิม ทำให้ได้ ${nr} ครั้ง (ครบ ${repMax} ทุกเซ็ตเมื่อไหร่ จะแนะนำให้เพิ่มน้ำหนัก)`};}
+  return{kg:topKg,reps:repMin,action:"hold",
+    reason:`ครั้งก่อนบางเซ็ตได้ ${minR} ครั้ง (เป้า ${repMin}) → ใช้น้ำหนักเดิม ${topKg}kg ทำให้ถึง ${repMin} ครั้งทุกเซ็ตก่อน`};
+}
+const REST_KEY="fl_rest";
+function restSecondsFor(name){
+  const pref=LS.get(REST_KEY,{})[name];if(pref)return pref;
+  const n=(name||"").toLowerCase();
+  if(/curl|raise|extension|fly|calf|lateral|kickback|crunch|plank|เคิร์ล|น่อง|ยกข้าง/.test(n))return 60;
+  if(/squat|deadlift|bench|row|press|pull.?up|chin|lunge|สควอท|เดดลิฟ|เบนช์|ดึงข้อ/.test(n))return 120;
+  return 90;
+}
+function fmtRest(s){s=Math.max(0,Math.round(s));return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
+let restT=null,restAudio=null;
+function unlockRestAudio(){try{restAudio=restAudio||new (window.AudioContext||window.webkitAudioContext)();if(restAudio.state==="suspended")restAudio.resume();}catch(_){}}
+function restBeep(){try{if(!restAudio)return;const t0=restAudio.currentTime;[0,0.28,0.56].forEach(t=>{const o=restAudio.createOscillator(),g=restAudio.createGain();o.frequency.value=880;o.connect(g);g.connect(restAudio.destination);g.gain.setValueAtTime(0.25,t0+t);g.gain.exponentialRampToValueAtTime(0.001,t0+t+0.2);o.start(t0+t);o.stop(t0+t+0.22);});}catch(_){}}
+function startRestTimer(name){
+  unlockRestAudio(); // ต้องเรียกจากการแตะของผู้ใช้ เบราว์เซอร์มือถือถึงยอมให้มีเสียง
+  const secs=restSecondsFor(name);
+  restT={name,end:Date.now()+secs*1000};
+  let el=document.getElementById("rest-timer");
+  if(!el){el=document.createElement("div");el.id="rest-timer";document.body.appendChild(el);} // อยู่นอก #app — render() ไม่ลบทิ้ง
+  el.style.cssText="position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 10px);z-index:9999;background:var(--card2);border:1.5px solid var(--accent);box-shadow:0 8px 24px rgba(0,0,0,.5);border-radius:24px;padding:6px 6px 6px 14px;display:flex;align-items:center;gap:6px";
+  const bs="border:none;border-radius:16px;background:var(--bg3);color:var(--text2);font-family:inherit;font-size:11.5px;font-weight:800;padding:7px 9px;cursor:pointer";
+  el.innerHTML=`<span id="rt-time" style="font-size:18px;font-weight:900;color:var(--accent2);min-width:50px;font-variant-numeric:tabular-nums">${fmtRest(secs)}</span>
+    <span style="font-size:10px;color:var(--text3);max-width:92px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">พัก · ${esc(name)}</span>
+    <button data-rt="-15" style="${bs}">−15</button><button data-rt="15" style="${bs}">+15</button><button data-rt="x" style="${bs};color:var(--accent2)">ข้าม</button>`;
+  el.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{
+    const v=b.dataset.rt;if(v==="x"){stopRestTimer();return;}
+    const d=+v;restT.end+=d*1000;
+    const pref=LS.get(REST_KEY,{});pref[name]=Math.max(15,restSecondsFor(name)+d);LS.set(REST_KEY,pref); // จำเวลาพักที่ชอบรายท่า
+    tickRest();
+  });
+  clearInterval(window._rtI);window._rtI=setInterval(tickRest,250);tickRest();
+}
+function tickRest(){
+  if(!restT)return;
+  const left=(restT.end-Date.now())/1000; // ใช้เวลาจริง — ล็อกจอแล้วกลับมาก็ยังนับถูก
+  const t=document.getElementById("rt-time");if(t)t.textContent=fmtRest(Math.ceil(left));
+  if(left<=0){stopRestTimer();restBeep();try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(_){}toast("⏱ หมดเวลาพัก ลุยเซ็ตต่อไป 💪");}
+}
+function stopRestTimer(){clearInterval(window._rtI);restT=null;const el=document.getElementById("rest-timer");if(el)el.remove();}
+
 function openExLog(ex){
   const exlog=LS.get(K.exlog(state.date),{});
   const cur=exlog[ex.name]||{};
   const last=lastExLog(ex.name,state.date);
   // จำนวนเซ็ตเป้าหมายจาก ex.sets เช่น "4x10" → 4 เซ็ต, default reps 10
-  const sm=(ex.sets||"").match(/(\d+)\s*[xX×]\s*(\d+)/);
+  const sm=(ex.sets||"").match(/(\d+)\s*[xX×]\s*(\d+)(?:\s*[-–]\s*(\d+))?/);
   const targetSets=sm?+sm[1]:(cur.sets?.length||3);
   const targetReps=sm?+sm[2]:10;
+  const repMax=sm&&sm[3]?+sm[3]:targetReps;
+  const sug=suggestNext(ex.name,last,targetReps,repMax);
   // สร้าง set rows: ใช้ค่าเดิมถ้ามี ไม่งั้นใช้ค่าจากครั้งก่อน/เป้าหมาย
   let sets=[];
   if(cur.sets&&cur.sets.length){sets=cur.sets.map(s=>({...s}));}
   else{
     const lastSets=last?.sets;
-    for(let i=0;i<targetSets;i++){
+    if(sug)for(let i=0;i<targetSets;i++)sets.push({reps:sug.reps,kg:sug.kg,done:false});
+    else for(let i=0;i<targetSets;i++){
       sets.push({reps:lastSets?.[i]?.reps??targetReps,kg:lastSets?.[i]?.kg??last?.sets?.[0]?.kg??"",done:false});
     }
   }
@@ -3654,6 +3786,17 @@ function openExLog(ex){
     </div>`:""}
     ${hist.length>=2?`<button class="btn btn-ghost btn-block" id="el-graph-btn" style="margin-bottom:12px">📈 ดูกราฟความก้าวหน้า (${hist.length} ครั้ง)</button><div id="el-graph" style="display:none;margin-bottom:12px"></div>`:""}
     ${lastLine?`<div style="display:flex;align-items:center;gap:8px;background:var(--teal-bg);border-radius:var(--r-md);padding:9px 12px;margin-bottom:14px"><span style="font-size:15px">📈</span><span style="font-size:11px;color:var(--text2)">ครั้งก่อน: ${esc(lastLine)}</span></div>`:""}
+    ${sug?`<div style="background:var(--accent-bg);border:1px solid var(--border);border-radius:var(--r-md);padding:11px 12px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:800;color:var(--accent2)">${sug.action==="up"?"🔼":sug.action==="reps"?"➕":"🎯"} แนะนำวันนี้: ${sug.kg}kg × ${sug.reps} ครั้ง</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px;line-height:1.5">${esc(sug.reason)}</div>
+      <div style="display:flex;gap:8px;margin-top:9px">
+        <button class="btn btn-primary" id="el-use-sug" style="flex:1;font-size:12px;padding:8px">ใช้คำแนะนำ</button>
+        <button class="btn btn-ghost" id="el-use-last" style="flex:1;font-size:12px;padding:8px">📋 ใช้ค่าครั้งก่อน</button>
+      </div></div>`:(last?.sets?.length?`<button class="btn btn-ghost btn-block" id="el-use-last" style="margin-bottom:10px">📋 ใช้ค่าครั้งก่อน</button>`:"")}
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:11px;color:var(--text3)">
+      <span style="flex:1">⏱ ติ๊กเซ็ตเสร็จ → เริ่มจับเวลาพักอัตโนมัติ (${fmtRest(restSecondsFor(ex.name))})</span>
+      <button class="btn btn-ghost" id="el-rest-btn" style="width:auto;font-size:11px;padding:6px 11px">เริ่มพักเลย</button>
+    </div>
     <div id="el-sets"></div>
     <button class="btn btn-ghost btn-block" id="el-addset" style="margin:4px 0 12px">➕ เพิ่มเซ็ต</button>
     <div style="margin-bottom:12px"><div class="flbl">โน้ต (ไม่บังคับ)</div><input id="el-notes" value="${esc(cur.notes??"")}" placeholder="เช่น รู้สึกหนัก เพิ่มได้อีก"></div>
@@ -3691,13 +3834,22 @@ function openExLog(ex){
           <input class="el-kg" data-si="${i}" type="number" inputmode="decimal" value="${s.kg??""}" placeholder="0" style="flex:1;text-align:center;font-weight:700">
           <button class="el-del" data-si="${i}" style="width:34px;height:38px;border-radius:10px;border:none;background:var(--bg3);color:var(--text3);font-size:16px;cursor:pointer;flex-shrink:0">×</button>
         </div>`).join("")}`;
-    box.querySelectorAll(".el-check").forEach(b=>b.onclick=()=>{const i=+b.dataset.si;window._elSets[i].done=!window._elSets[i].done;renderSets();});
+    box.querySelectorAll(".el-check").forEach(b=>b.onclick=()=>{
+      const i=+b.dataset.si;window._elSets[i].done=!window._elSets[i].done;renderSets();
+      // เซ็ตเสร็จ (และยังไม่ใช่เซ็ตสุดท้าย) → เริ่มจับเวลาพัก
+      if(window._elSets[i].done&&!window._elSets.every(s=>s.done))startRestTimer(ex.name);
+    });
     box.querySelectorAll(".el-reps").forEach(inp=>inp.oninput=()=>{window._elSets[+inp.dataset.si].reps=inp.value?+inp.value:null;});
     box.querySelectorAll(".el-kg").forEach(inp=>inp.oninput=()=>{window._elSets[+inp.dataset.si].kg=inp.value?+inp.value:null;});
     box.querySelectorAll(".el-del").forEach(b=>b.onclick=()=>{window._elSets.splice(+b.dataset.si,1);if(!window._elSets.length)window._elSets.push({reps:targetReps,kg:"",done:false});renderSets();});
   }
   renderSets();
   document.getElementById("close-el").onclick=closeSheet;
+  const us=document.getElementById("el-use-sug");
+  if(us)us.onclick=()=>{const n=Math.max(window._elSets.length,targetSets);window._elSets=Array.from({length:n},()=>({reps:sug.reps,kg:sug.kg,done:false}));renderSets();toast("🎯 ใส่ค่าตามคำแนะนำแล้ว");};
+  const ul=document.getElementById("el-use-last");
+  if(ul)ul.onclick=()=>{window._elSets=last.sets.map(s=>({reps:s.reps,kg:s.kg,done:false}));renderSets();toast("📋 คัดลอกค่าครั้งก่อนแล้ว");};
+  const rb=document.getElementById("el-rest-btn");if(rb)rb.onclick=()=>startRestTimer(ex.name);
   document.getElementById("el-addset").onclick=()=>{const l=window._elSets[window._elSets.length-1];window._elSets.push({reps:l?.reps??targetReps,kg:l?.kg??"",done:false});renderSets();};
   document.getElementById("el-save").onclick=()=>{
     const sets=window._elSets.filter(s=>s.reps||s.kg);
@@ -4116,6 +4268,39 @@ function viewMore(){
 
   <div class="card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
+      <div class="icf icf-green" style="width:32px;height:32px;font-size:16px">🍱</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:var(--text)">ไลฟ์สไตล์การกิน</div>
+        <div style="font-size:10px;color:var(--text3)">โค้ชใช้ข้อมูลนี้แนะนำเมนูที่คุณกินได้จริง</div>
+      </div>
+    </div>
+    ${(()=>{const l=(p&&p.lifestyle)||{};const f=(id,lbl,ph,v)=>`<div style="margin-bottom:8px"><div class="flbl">${lbl}</div><input id="${id}" placeholder="${ph}" value="${esc(v||"")}"></div>`;
+      return f("ls-likes","อาหารที่ชอบ/กินบ่อย","เช่น ข้าวมันไก่, สลัดอกไก่, ส้มตำ",l.likes)
+      +f("ls-dislikes","ไม่กิน/แพ้","เช่น ไม่กินผักชี, แพ้กุ้ง",l.dislikes)
+      +`<div style="margin-bottom:8px"><div class="flbl">อาหารส่วนใหญ่มาจาก</div><select id="ls-eatstyle">${["","ทำกินเอง","ร้านตามสั่ง/ร้านอาหาร","ร้านสะดวกซื้อ","ผสมกัน"].map(o=>`<option value="${o}" ${l.eatStyle===o?"selected":""}>${o||"— เลือก —"}</option>`).join("")}</select></div>`
+      +f("ls-budget","งบอาหารต่อวัน","เช่น 300 บาท",l.budget)
+      +f("ls-weakness","จุดอ่อน","เช่น ของหวานตอนบ่าย, กินดึก, เครื่องดื่มหวาน",l.weakness)
+      +f("ls-schedule","ตารางชีวิต","เช่น ทำงาน 9-18 น., ออกกำลังตอนเย็น, เสาร์อาทิตย์กินข้าวกับครอบครัว",l.schedule);})()}
+    <button class="btn btn-primary btn-block" id="ls-save">บันทึกไลฟ์สไตล์</button>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
+      <div class="icf icf-teal" style="width:32px;height:32px;font-size:16px">📝</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:var(--text)">สมุดโค้ช</div>
+        <div style="font-size:10px;color:var(--text3)">สิ่งที่โค้ชจดไว้จากการคุย · แตะ × เพื่อลบ</div>
+      </div>
+    </div>
+    ${(()=>{const m=getMemo();let o="";
+      o+=m.weeklyGoal?`<div style="background:var(--accent-bg);border-radius:var(--r-md);padding:9px 11px;margin-bottom:9px;font-size:12px;color:var(--text)">🎯 <b>เป้าสัปดาห์นี้:</b> ${esc(m.weeklyGoal.text)}<div style="font-size:10px;color:var(--text3);margin-top:2px">ตั้งเมื่อ ${esc(m.weeklyGoal.setDate)} <span data-memogoaldel="1" style="color:var(--red);cursor:pointer;margin-left:6px">ลบเป้า</span></div></div>`:`<div class="small" style="margin-bottom:9px">ยังไม่มีเป้าพฤติกรรมประจำสัปดาห์ — ลองถามโค้ชว่า "สัปดาห์นี้ควรโฟกัสอะไร"</div>`;
+      o+=m.facts.length?`<div style="display:flex;flex-direction:column;gap:5px">${m.facts.map((f,i)=>`<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:10px;padding:7px 10px;font-size:12px;color:var(--text2)"><span style="flex:1">${esc(f)}</span><span data-memodel="${i}" style="color:var(--text3);cursor:pointer;font-weight:800;padding:0 4px">×</span></div>`).join("")}</div>`:`<div class="small">ยังไม่มีบันทึก — โค้ชจะจดเองเมื่อรู้ข้อมูลที่ช่วยการแนะนำ</div>`;
+      return o;})()}
+    <button class="btn btn-ghost btn-block" id="coach-clearchat" style="margin-top:10px;font-size:12px">🗑️ ล้างประวัติแชทโค้ช (สมุดยังอยู่)</button>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
       <div class="icf icf-red" style="width:32px;height:32px;font-size:16px">🎥</div>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:800;color:var(--text)">วิดีโอสาธิตท่าออกกำลัง</div>
@@ -4236,6 +4421,21 @@ function stat(l,v,u,hl){
 }
 
 function bindMore(){
+  // ── ไลฟ์สไตล์การกิน ──
+  const lss=document.getElementById("ls-save");
+  if(lss)lss.onclick=()=>{
+    const p=LS.get(K.profile,{})||{};const g=id=>(document.getElementById(id)?.value||"").trim();
+    p.lifestyle={likes:g("ls-likes"),dislikes:g("ls-dislikes"),eatStyle:g("ls-eatstyle"),budget:g("ls-budget"),weakness:g("ls-weakness"),schedule:g("ls-schedule")};
+    if(LS.set(K.profile,p))toast("✅ บันทึกไลฟ์สไตล์แล้ว — โค้ชจะใช้ข้อมูลนี้");
+  };
+  // ── สมุดโค้ช ──
+  document.querySelectorAll("[data-memodel]").forEach(b=>b.onclick=()=>{
+    const m=getMemo();m.facts.splice(+b.dataset.memodel,1);LS.set(K.coachMemo,m);render();
+  });
+  const mgd=document.querySelector("[data-memogoaldel]");
+  if(mgd)mgd.onclick=()=>{if(confirm("ลบเป้าสัปดาห์นี้?")){const m=getMemo();m.weeklyGoal=null;LS.set(K.coachMemo,m);render();}};
+  const ccl=document.getElementById("coach-clearchat");
+  if(ccl)ccl.onclick=()=>{if(confirm("ล้างประวัติแชทโค้ชทั้งหมด? (สมุดโค้ชยังอยู่)")){clearCoachChat();toast("✅ ล้างแชทแล้ว");}};
   // ── Food DB management ──
   document.querySelectorAll("[data-fdbdel]").forEach(b=>b.onclick=()=>{
     if(confirm(`ลบ "${b.dataset.fdbdel}" ออกจากฐานข้อมูล?`)){deleteFromFoodDB(b.dataset.fdbdel);render();}
@@ -4352,7 +4552,7 @@ function openCoach(){
     document.getElementById("gokey").onclick=()=>{closeSheet();state.tab="more";render();};
     return;
   }
-  if(!coachMsgs.length)coachMsgs=[{role:"ai",text:"สวัสดีครับ 👋 ผมเห็นข้อมูลทั้งหมดของคุณแล้ว\n\nมีอะไรให้ช่วยไหม? เช่น:\n• วันนี้กินเกิน ต้องทำยังไง?\n• พรุ่งนี้มีงานเลี้ยง วางแผนยังไงดี?\n• ตอนนี้ตรงเป้าหมายไหม?"}];
+  if(!coachMsgs.length)coachMsgs=[{role:"ai",text:"สวัสดีครับ 👋 ผมเห็นข้อมูลทั้งหมดของคุณ และจำสิ่งที่เราคุยกันไว้ในสมุดโค้ช\n\nมีอะไรให้ช่วยไหม? เช่น:\n• สัปดาห์นี้ควรโฟกัสอะไรที่สุด?\n• วางแผนมื้อพรุ่งนี้ให้หน่อย\n• วันนี้กินเกิน ต้องทำยังไง?"}];
   renderCoachUI();
 }
 
@@ -4367,7 +4567,8 @@ function renderCoachUI(){
           <div style="font-weight:800;font-size:15px">เทรนเนอร์ AI</div>
           <div style="font-size:10px;color:var(--green);font-weight:700;letter-spacing:.3px">● เข้าถึงข้อมูลจริงของคุณ</div>
         </div>
-        <button id="coach-close" style="margin-left:auto;background:var(--bg3);border:1px solid var(--border);border-radius:50%;width:30px;height:30px;font-size:15px;color:var(--text2);cursor:pointer">×</button>
+        <button id="coach-reset" style="margin-left:auto;margin-right:6px;background:var(--bg3);border:1px solid var(--border);border-radius:15px;height:30px;padding:0 11px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit">เริ่มใหม่</button>
+        <button id="coach-close" style="background:var(--bg3);border:1px solid var(--border);border-radius:50%;width:30px;height:30px;font-size:15px;color:var(--text2);cursor:pointer">×</button>
       </div>
       <div class="chatbody" id="chatbody">${coachMsgs.map((m,i)=>bubbleHTML(m,i)).join("")}</div>
       ${coachMsgs.length<=1?`<div class="quick" id="quickbtns">${quick.map(q=>`<button data-q="${esc(q)}">${q}</button>`).join("")}</div>`:""}
@@ -4387,6 +4588,8 @@ function renderCoachUI(){
   `,true);
   const body=document.getElementById("chatbody");body.scrollTop=body.scrollHeight;
   document.getElementById("coach-close").onclick=closeSheet;
+  const crs=document.getElementById("coach-reset");
+  if(crs)crs.onclick=()=>{if(confirm("เริ่มแชทใหม่? (สมุดโค้ช เช่น ความชอบและเป้าสัปดาห์ ยังจำไว้เหมือนเดิม)")){clearCoachChat();openCoach();}};
   document.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>coachSend(b.dataset.q));
   const cif=document.getElementById("coach-img-file");
   document.getElementById("coach-attach").onclick=()=>cif.click();
@@ -4478,10 +4681,11 @@ function bubbleHTML(m,idx){
   const ovBtn=m.ov?(m.ov.cancel
     ?`<button class="btn btn-primary btn-block" data-saveov="${idx}" style="margin-top:10px;background:var(--bg3);color:var(--text2)">↩️ ยกเลิกเป้าเฉพาะกิจ กลับสู่ปกติ</button>`
     :`<button class="btn btn-primary btn-block" data-saveov="${idx}" style="margin-top:10px;background:linear-gradient(135deg,var(--amber),var(--accent))">⚡ ยืนยันปรับเป้า ${m.ov.delta>0?"+":""}${m.ov.delta} kcal · ${m.ov.days} วัน</button>`):"";
-  const imgHTML=(m.images&&m.images.length)?`<div style="display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap">${m.images.map(im=>`<img src="data:${im.mime};base64,${im.b64}" style="width:64px;height:64px;object-fit:cover;border-radius:var(--r-sm);border:1px solid var(--border)">`).join("")}</div>`:"";
+  const imgHTML=(m.images&&m.images.length)?`<div style="display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap">${m.images.map(im=>`<img src="data:${im.mime};base64,${im.b64}" style="width:64px;height:64px;object-fit:cover;border-radius:var(--r-sm);border:1px solid var(--border)">`).join("")}</div>`:(typeof m.images==="number"&&m.images>0?`<div style="font-size:11px;opacity:.7;margin-bottom:6px">📷 แนบรูป ${m.images} รูป</div>`:"");
+  const memoHTML=m.memo?`<div style="margin-top:9px;padding:7px 10px;border-radius:10px;background:var(--teal-bg);font-size:11px;color:var(--teal);line-height:1.55">📝 จดลงสมุดโค้ชแล้ว<br>${m.memo.map(x=>esc(x)).join("<br>")}</div>`:"";
   return`<div class="msg ${m.role==="user"?"user":"ai"}">
     ${m.role==="ai"?`<div class="avatar" style="width:28px;height:28px;font-size:13px;flex-shrink:0">💬</div>`:""}
-    <div class="bubble">${imgHTML}${esc(m.text)}${planBtn}${dcalBtn}${foodBtn}${ovBtn}</div>
+    <div class="bubble">${imgHTML}${esc(m.text)}${planBtn}${dcalBtn}${foodBtn}${ovBtn}${memoHTML}</div>
   </div>`;
 }
 
@@ -4698,15 +4902,40 @@ function buildContext(lookbackDays=7){
   const ovCtx=getOverride(d);
   if(ovCtx)engineLines.push(`⚡ เป้าเฉพาะกิจที่ผู้ใช้ยืนยันไว้: ${ovCtx.delta>0?"+":""}${ovCtx.delta} kcal${ovCtx.reason?` (${ovCtx.reason})`:""} เหลืออีก ${daysLeftOverride(d,ovCtx)} วัน ถึง ${ovCtx.until} — เคารพการตัดสินใจนี้ ไม่ต้องเสนอยกเลิกเว้นแต่ผู้ใช้ถาม หรือมีสัญญาณอันตราย`);
 
+  // ── บรรทัดร่างกาย: ใส่เฉพาะค่าที่มีจริง (เดิมมีขีด "-" เต็มไปหมด รกและทำให้ AI สับสน) ──
+  const wNow=lb?.weight||p.weight;
+  const bmiNow=lb?.bmi||(wNow&&p.height?+(wNow/Math.pow(p.height/100,2)).toFixed(1):null);
+  const bp=[`น้ำหนัก ${wNow}kg`];
+  if(bmiNow)bp.push(`BMI ${bmiNow}`);
+  if(lb?.bodyFat!=null)bp.push(`ไขมัน ${lb.bodyFat}%`);
+  if(lb?.fatMass!=null)bp.push(`มวลไขมัน ${lb.fatMass}kg`);
+  if(lb?.muscleMass)bp.push(`กล้ามเนื้อรวม ${lb.muscleMass}kg`);
+  if(lb?.skeletalMuscle)bp.push(`กล้ามโครงร่าง ${lb.skeletalMuscle}kg`);
+  bp.push(`BMR ${t.bmr}`);
+  if(lb?.waterPct!=null)bp.push(`น้ำ ${lb.waterPct}%`);
+  if(lb?.visceralFat)bp.push(`ไขมันช่องท้อง ${lb.visceralFat}`);
+  if(lb?.heartRate!=null)bp.push(`ชีพจรพัก ${lb.heartRate}bpm`);
+  const bodyLine=bp.join(" · ");
+  const mo=getMemo();
+  const goalAge=mo.weeklyGoal?Math.round((new Date(d+"T00:00:00")-new Date(mo.weeklyGoal.setDate+"T00:00:00"))/86400000):null;
+  const memoBlock=[
+    mo.facts.length?"สิ่งที่รู้เกี่ยวกับผู้ใช้: "+mo.facts.join(" | "):"ยังไม่มีบันทึก",
+    mo.weeklyGoal?`เป้าพฤติกรรมสัปดาห์นี้: "${mo.weeklyGoal.text}" (ตั้งเมื่อ ${mo.weeklyGoal.setDate}, ผ่านมา ${goalAge} วัน${goalAge>=7?" — ครบสัปดาห์แล้ว ควรถามผลแล้วตั้งเป้าใหม่":""})`:"ยังไม่มีเป้าพฤติกรรมประจำสัปดาห์",
+    mo.goalLog.length?"ผลเป้าที่ผ่านมา: "+mo.goalLog.slice(-3).map(g=>`${g.date} "${g.goal}" → ${g.result}`).join(" | "):""
+  ].filter(Boolean).join("\n");
+  const ad=adherenceStats(d,14),sg=v=>(v>0?"+":"")+v;
+  const adLine=!ad||!ad.logged?"ยังไม่มีข้อมูลอาหารใน 14 วันที่ผ่านมา":
+    `14 วันที่ผ่านมา (ไม่นับวันนี้): บันทึก ${ad.logged}/14 วัน | แคลอยู่ในเป้า ±10%: ${ad.hit}/${ad.logged} วัน (เกิน ${ad.over}, ต่ำกว่า ${ad.under}) | โปรตีนถึง 90% ของ ${ad.proteinTarget}g: ${ad.protHit}/${ad.logged} วัน`+
+    (ad.wkdAvg!=null&&ad.wkeAvg!=null?` | ต่างจากเป้าเฉลี่ย: วันธรรมดา ${sg(ad.wkdAvg)} / เสาร์-อาทิตย์ ${sg(ad.wkeAvg)} kcal`:"")+
+    (ad.worst?` | วันที่เกินเป้าบ่อยสุด: วัน${ad.worst.day} (เฉลี่ย +${ad.worst.avg} kcal)`:"");
+
   return`[วันนี้จริงคือ: ${fmtDate(d)} ${d} — ใช้วันนี้เป็นหลักเสมอเวลาพูดถึง "วันนี้/พรุ่งนี้/เมื่อวาน" ห้ามสับสนกับวันที่อื่นที่กล่าวถึงด้านล่าง]
 ${browsingOtherDay?`[หมายเหตุ: ผู้ใช้กำลังเปิดดูข้อมูลของวันที่ ${fmtDate(state.date)} (${state.date}) ค้างอยู่ในแอป แต่ไม่ได้แปลว่าเขาหมายถึงวันนั้นเวลาพูดคุย เว้นแต่เขาระบุชัดเจน]\n`:""}
 [ข้อมูลผู้ใช้ | ย้อนหลัง ${lookbackDays} วันจากวันนี้]
 โปรไฟล์: ${p.gender==="male"?"ชาย":"หญิง"} อายุ ${p.age} สูง ${p.height}cm
-ปัจจุบัน: น้ำหนัก ${lb?.weight||p.weight}kg BMI ${lb?.bmi||"-"} ไขมัน ${lb?.bodyFat!=null?lb.bodyFat+"%":"-"} มวลไขมัน ${lb?.fatMass!=null?lb.fatMass+"kg":"-"}
-กล้ามเนื้อรวม ${lb?.muscleMass||"-"}kg กล้ามโครงร่าง ${lb?.skeletalMuscle||"-"}kg BMR ${t.bmr}
-น้ำในร่างกาย ${lb?.waterPct!=null?lb.waterPct+"%":"-"} โปรตีน ${lb?.proteinPct!=null?lb.proteinPct+"%":"-"} ไขมันช่องท้อง ${lb?.visceralFat||"-"} หัวใจ ${lb?.heartRate!=null?lb.heartRate+"bpm":"-"}
+ปัจจุบัน: ${bodyLine}
 HR Zone (Karvonen): ${hrLine}
-เป้าหมาย: น้ำหนัก ${p.targetWeight||"-"}kg ไขมัน ${p.targetBf||"-"}%
+เป้าหมาย: น้ำหนัก ${p.targetWeight||"-"}kg${p.targetBf?` ไขมัน ${p.targetBf}%`:""}
 แคลอรี่เป้าหมาย: ${t.cal} kcal (P${t.protein} C${t.carb} F${t.fat}) TDEE ${t.tdee}
 เป้าวันนี้: ${dt.cal} kcal${dt.banked?" [ปรับโดยแผน]":""}
 เป้าแคลอรี่รายวันที่ตั้งไว้: ${dcalLine}
@@ -4714,6 +4943,12 @@ HR Zone (Karvonen): ${hrLine}
 มื้อวันนี้: ${todayList}
 คาร์ดิโอวันนี้: ${cardioList}
 แผนวันนี้: ${planLine}${planWeekLine}
+--- ไลฟ์สไตล์การกิน (ผู้ใช้กรอกเอง) ---
+${lifestyleLine(p)||"ยังไม่ได้กรอก — ถ้าจำเป็นต่อคำแนะนำ ให้ถามสั้นๆ ทีละข้อ แล้วจดลง MEMO"}
+--- สมุดโค้ช (สิ่งที่คุณจดไว้จากการคุยครั้งก่อนๆ) ---
+${memoBlock}
+--- สถิติการทำตามเป้า ---
+${adLine}
 --- ประวัติ ${lookbackDays} วัน ---
 อาหาร (เฉลี่ย ${avgCal} kcal/วัน):
 ${foodHist.join("\n")}
@@ -4739,19 +4974,27 @@ async function coachSend(text){
   const body=document.getElementById("chatbody");
   if(body)body.insertAdjacentHTML("beforeend",`<div class="msg ai" id="typing"><div class="avatar" style="width:28px;height:28px;font-size:13px;flex-shrink:0">💬</div><div class="dots"><span></span><span></span><span></span></div></div>`);
   if(body)body.scrollTop=body.scrollHeight;
-  const sys=`คุณคือเทรนเนอร์ส่วนตัวมืออาชีพด้านลดไขมัน/ปั้นหุ่น พูดไทยเป็นกันเองแต่แม่นยำ ใช้ข้อมูลจริงด้านล่างเสมอ ห้ามเดา
+  const sys=`คุณคือโค้ชส่วนตัวด้านลดไขมัน/ปั้นหุ่นที่เก่งและเอาใจใส่ เหมือนเทรนเนอร์ที่ดูแลคนนี้มานาน พูดไทยเป็นกันเอง ตรงไปตรงมา ใช้ข้อมูลจริงด้านล่าง ห้ามเดาตัวเลข
 
-**ถ้าคำถามเป็นคำถามทั่วไป** (ไม่ได้ขอสร้าง/ปรับแผนออกกำลัง, ขอปรับแคลอรี่ชั่วคราว, บันทึกอาหาร, หรือขอปรับเป้าเฉพาะกิจ) — ตอบเต็มที่แบบเทรนเนอร์เก่งจริง ลึก เฉพาะตัว มีมุมมอง ไม่ต้องกังวลเรื่องฟอร์แมต/กฎละเอียดในหมวด "รูปแบบคำสั่งพิเศษ" ด้านล่างเลย แค่ใช้ข้อมูล ENGINE ประกอบคำแนะนำ
+**หน้าที่หลัก: ทำให้ผู้ใช้ทำตามแผนได้จริงจนเห็นผล ไม่ใช่แค่รายงานตัวเลข**
+- อ่าน "สถิติการทำตามเป้า" ก่อนเสมอ หาแพทเทิร์นที่พลาดซ้ำ (วันไหน มื้อไหน อะไรเป็นตัวการ) แล้วแก้ที่ต้นเหตุ ไม่ใช่แค่บอกว่าเกิน/ขาดเท่าไหร่
+- ปรับคำแนะนำให้เข้ากับชีวิตจริงจาก "ไลฟ์สไตล์การกิน" และ "สมุดโค้ช": แนะนำเมนูที่เขากินจริง หาได้จริง (ทำเอง/ร้านตามสั่ง/ร้านสะดวกซื้อ ตามที่เขาใช้) อิ่มจริง ห้ามแนะนำของที่เขาบอกว่าไม่กินหรือแพ้
+- ให้คำแนะนำที่เจาะจงและทำได้: เมนู+ปริมาณ วิธีสั่งอาหารนอกบ้าน การกระจายมื้อ รับมือความหิว งานเลี้ยง กินดึก ของหวาน การนอน การเดินเพิ่ม — กล้าแนะนำตรงๆ
+- ทุกคำตอบที่เป็นการให้คำแนะนำ ปิดท้ายด้วยบรรทัด "✅ ทำได้เลยใน 24 ชม.: ..." 1 ข้อที่ชัดเจนและวัดผลได้
+- **เป้าพฤติกรรมประจำสัปดาห์:** ถ้าสมุดโค้ชยังไม่มี หรือครบ 7 วันแล้ว ให้เสนอ 1 นิสัยที่มีผลมากที่สุดจากข้อมูลจริง (เช่น "โปรตีนถึงเป้าอย่างน้อย 5/7 วัน", "เสาร์-อาทิตย์กินไม่เกินเป้า +200") เมื่อผู้ใช้ตกลงให้จดลง MEMO ถ้ามีเป้าอยู่แล้ว ให้ติดตามผลอย่างเป็นธรรมชาติเมื่อเหมาะสม
+- ถ้าขาดข้อมูลส่วนตัวที่สำคัญต่อคำแนะนำ ถามได้ครั้งละ 1 คำถามสั้นๆ (ไม่ต้องถามทุกครั้ง)
+- ตอบกระชับอ่านง่ายบนมือถือ ไม่ยาวเกินจำเป็น
 
-ผู้ใช้อาจแนบรูปมาด้วย (เช่น รูปหุ่นเป้าหมาย, ผลออกกำลัง, อาหาร) — ดูรูปประกอบการให้คำแนะนำ/ช่วยวางแผนได้เต็มที่ เช่น เทียบรูปร่างปัจจุบันกับเป้าหมายในรูป แล้วเสนอแนวทาง
+ผู้ใช้อาจแนบรูปมาด้วย (รูปหุ่นเป้าหมาย ผลออกกำลัง อาหาร) — ดูรูปประกอบการแนะนำ/วางแผนได้เต็มที่
 
-**วันที่:** ข้อความผู้ใช้จะขึ้นต้นด้วย [วันที่จริง] เป็น metadata ระบบ ห้ามพูดถึง/ย้ำกับผู้ใช้ ยึด "วันนี้จริงคือ" ในข้อมูลด้านล่างเสมอเวลาพูดถึงวันนี้/พรุ่งนี้/เมื่อวาน ห้ามสับสนกับวันที่ของข้อความเก่าในประวัติแชท
+**วันที่:** ข้อความผู้ใช้ขึ้นต้นด้วย [วันที่จริง] เป็น metadata ระบบ ห้ามพูดถึง ยึด "วันนี้จริงคือ" ในข้อมูลด้านล่างเสมอ ห้ามสับสนกับวันที่ของข้อความเก่าในประวัติแชท
 
-**Engine เป็นคนตัดสิน คุณมีหน้าที่อธิบาย:** ระบบคำนวณ trend/deficit/คำแนะนำแคลอรี่ไว้แล้ว (ดู "ผลการคำนวณจาก ENGINE" ด้านล่าง) ยึดตามนั้นเป็นหลัก อย่าเสนอขัดกัน (เช่น Engine บอก [hold] ห้ามแนะนำให้ลดแคลเอง) คำแนะนำปรับแคลแบบ hold/decrease ปกติ โชว์เต็มเฉพาะวันจันทร์ (ดูจาก context ว่าวันนี้จันทร์ไหม) วันอื่นตอบได้แต่บอกว่ากำลังรอดูเทรนด์ถึงจันทร์ เว้นแต่มีความเสี่ยงเร่งด่วน (ลดเร็วเกิน/ข้อมูลผิดปกติ) ที่ต้องแจ้งทันที — ตัดสินใจจาก 7-day average เสมอ ไม่ใช่น้ำหนักวันเดียว (แกว่งจากน้ำ/เกลือ/อาหารในท้อง) — BIA (%ไขมัน/กล้ามเนื้อ) เชื่อเฉพาะ trend 14 วันขึ้นไป อย่าตีความค่ารายวัน รอบเอวแม่นกว่าสำหรับไขมันหน้าท้อง — ถ้าความแม่นยำข้อมูล<70% บอกตรงๆว่ายังสรุปไม่ได้ ต้องบันทึกให้แม่นก่อน
+**ตัวเลขเป้าแคลอรี่ ยึด Engine:** ระบบคำนวณ trend/deficit/คำตัดสินเรื่องเป้าแคลไว้แล้ว (ดู "ผลการคำนวณจาก ENGINE") ห้ามเสนอเป้าแคลขัดกับ Engine (เช่น Engine บอก [hold] ห้ามบอกให้ลดเป้าเอง) การปรับเป้าแคลแบบปกติสรุปเต็มวันจันทร์ วันอื่นบอกได้ว่ากำลังรอดูเทรนด์ เว้นแต่มีความเสี่ยงเร่งด่วน — ใช้ 7-day average ไม่ใช่น้ำหนักวันเดียว — BIA เชื่อเฉพาะ trend 14 วันขึ้นไป รอบเอวแม่นกว่าสำหรับไขมันหน้าท้อง
+**ความแม่นยำข้อมูลต่ำ (<70%) มีผลแค่ "ห้ามสรุปว่าต้องปรับเป้าแคล"** — ยังต้องให้คำแนะนำเรื่องอาหาร/พฤติกรรมเต็มที่เสมอ ถ้าจะเตือนเรื่องการบันทึกให้พูดสั้นๆ 1 ประโยคพร้อมวิธีที่ง่ายที่สุด และไม่ต้องพูดซ้ำทุกครั้ง
 
-พื้นฐานการออกกำลังของผู้ใช้: เดินชัน Zone 2 (60-70% max HR) ร่วมกับ weights training เป็นหลักอยู่แล้ว ยึดแนวนี้เว้นแต่ผู้ใช้บอกเงื่อนไขอื่น
+พื้นฐานการออกกำลังของผู้ใช้: เดินชัน Zone 2 (60-70% max HR) ร่วมกับ weights training ยึดแนวนี้เว้นแต่ผู้ใช้บอกเงื่อนไขอื่น
 
-━━━ รูปแบบคำสั่งพิเศษ — แนบเฉพาะเมื่อผู้ใช้ขอจริงๆ เท่านั้น (คุยทั่วไปห้ามใส่) ━━━
+━━━ รูปแบบคำสั่งพิเศษ — แนบเฉพาะเมื่อผู้ใช้ขอจริงๆ (ยกเว้น MEMO ที่ใช้เองได้) ━━━
 
 **ปรับเป้าเฉพาะกิจ (Informed Override)** — เมื่อผู้ใช้ขอปรับแรงกว่า Engine แนะนำ เพราะมีเป้าหมายเฉพาะกิจ (งานแต่ง/แข่งขัน/ทริป): (1) บอกก่อนว่า Engine แนะนำอะไรและทำไม (2) อธิบายความเสี่ยงตรงๆ (เสียกล้ามเนื้อ เหนื่อยล้า เมตาบอลิซึมช้า โยโย่) (3) เสนอกรอบเวลาจำกัด (2-4 สัปดาห์) แล้วกลับปกติ (4) ถามยืนยัน แล้วแนบ:
 <OVERRIDE>{"delta":-300,"days":21,"reason":"เตรียมงานแต่ง"}</OVERRIDE>
@@ -4769,6 +5012,10 @@ async function coachSend(text){
 <FOOD>{"items":[{"name":"ข้าวมันไก่","cal":600,"protein":30,"carb":70,"fat":20,"fiber":2,"sugar":3,"sodium":900}]}</FOOD>
 (fiber/sugar เป็นกรัม sodium เป็นมิลลิกรัม ไม่ระบุปริมาณ→ประเมิน 1 หน่วยเสิร์ฟมาตรฐาน)
 
+**สมุดโค้ช (MEMO) — ใช้เองได้ไม่ต้องรอผู้ใช้ขอ:** เมื่อได้รู้ข้อมูลถาวรที่ช่วยการโค้ช (ชอบ/ไม่กิน/แพ้, กินที่ไหน, ตารางชีวิต, จุดอ่อน, วิธีที่ได้ผล/ไม่ได้ผลกับเขา) หรือผู้ใช้ตกลงเป้าพฤติกรรมสัปดาห์ หรือได้ผลติดตามเป้า ให้แนบท้ายคำตอบ:
+<MEMO>{"facts_add":["ไม่กินผักชี","กินข้าวกลางวันร้านตามสั่งหน้าที่ทำงาน"],"facts_remove":[],"weekly_goal":"โปรตีนถึงเป้าอย่างน้อย 5/7 วัน","goal_result":"สัปดาห์ก่อนทำได้ 4/7"}</MEMO>
+ใส่เฉพาะช่องที่มีข้อมูลใหม่ ข้อความสั้น เป็นข้อเท็จจริง ห้ามจดตัวเลขที่ระบบมีอยู่แล้ว (น้ำหนัก แคล) ห้ามจดซ้ำกับที่มีในสมุดโค้ช ถ้าข้อมูลเดิมเปลี่ยนให้ใส่ใน facts_remove แล้วเพิ่มใหม่
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ${buildContext(lookbackDays)}`;
@@ -4780,7 +5027,10 @@ ${buildContext(lookbackDays)}`;
       ?[...imgs.map(im=>({type:"image",source:{type:"base64",media_type:im.mime,data:im.b64}})),{type:"text",text:stampedText}]
       :stampedText;
     coachHistory.push({role:"user",content:userContent});
-    const reply=await callClaude({max_tokens:2500,system:sys,messages:coachHistory.slice(-8)});
+    if(coachHistory.length>40)coachHistory=coachHistory.slice(-40);
+    let hist=coachHistory.slice(-20);
+    while(hist.length&&hist[0].role!=="user")hist.shift(); // API ต้องเริ่มด้วยข้อความผู้ใช้
+    const reply=await callClaude({max_tokens:3000,system:sys,messages:hist});
     coachHistory.push({role:"assistant",content:reply});
     // แยก <PLAN>...</PLAN> และ <DCAL>...</DCAL> ออกจากข้อความ
     let cleanText=reply,planObj=null,dcalObj=null;
@@ -4842,8 +5092,18 @@ ${buildContext(lookbackDays)}`;
         }else{cleanText+=" ⚠️ บันทึกอาหารไม่ได้ (รูปแบบผิด) ลองใหม่ครับ";}
       }catch(err){cleanText+=" ⚠️ บันทึกอาหารไม่ได้ (JSON error) ลองใหม่ครับ";}
     }
-    coachMsgs.push({role:"ai",text:cleanText,plan:planObj,dcal:dcalObj,food:foodObj,ov:ovObj});
-  }catch(e){coachMsgs.push({role:"ai",text:aiError(e)});}
+    const mm=reply.match(/<MEMO>([\s\S]*?)<\/MEMO>/);
+    let memoChanges=null;
+    if(mm){
+      cleanText=cleanText.replace(/<MEMO>[\s\S]*?<\/MEMO>/g,"").trim();
+      try{memoChanges=applyMemo(extractJSON(mm[1]));}catch(_){}
+    }
+    coachMsgs.push({role:"ai",text:cleanText,plan:planObj,dcal:dcalObj,food:foodObj,ov:ovObj,memo:memoChanges&&memoChanges.length?memoChanges:null});
+  }catch(e){
+    if(coachHistory.length&&coachHistory[coachHistory.length-1].role==="user")coachHistory.pop(); // ไม่ทิ้งข้อความค้างที่ไม่มีคำตอบ
+    coachMsgs.push({role:"ai",text:aiError(e)});
+  }
+  saveCoach();
   renderCoachUI();
 }
 
@@ -4927,8 +5187,10 @@ function showSheet(html,fullH){
 function closeSheet(){const o=document.getElementById("overlay");if(o)o.remove();_sheetOverlay=null;}
 function setErr(id,msg){const e=document.getElementById(id);if(e)e.textContent=msg;}
 function toast(msg){
-  const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");
-  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);
+  // ถ้าเพิ่งบันทึกล้มเหลว ห้ามข้อความ "✅ บันทึกแล้ว" มาทับคำเตือน
+  if(window.__lsFailAt&&Date.now()-window.__lsFailAt<2500&&/^✅/.test(msg))return;
+  const t=document.getElementById("toast");if(!t)return;t.textContent=msg;t.classList.add("show");
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),/^⚠️/.test(msg)?5000:2200);
 }
 /* PR celebration overlay */
 function prCelebrate(exName,detail){
@@ -4948,6 +5210,43 @@ function prCelebrate(exName,detail){
   setTimeout(close,5000);
 }
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+
+/* ══════════════════════════════════════
+   PWA — ใช้งานออฟไลน์ + แจ้งเวอร์ชันใหม่ + ป้ายสถานะออฟไลน์
+══════════════════════════════════════ */
+function showUpdateBar(){
+  if(document.getElementById("upd-bar"))return;
+  const b=document.createElement("div");b.id="upd-bar";
+  b.style.cssText="position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 150px);z-index:9998;background:var(--accent);color:#fff;border-radius:14px;padding:11px 12px 11px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 28px rgba(0,0,0,.5);font-size:13px;font-weight:700";
+  b.innerHTML=`<span style="flex:1">✨ มี FitLog เวอร์ชันใหม่แล้ว</span><button id="upd-go" style="border:none;border-radius:10px;background:#fff;color:#4a3fc4;font-weight:800;padding:8px 13px;font-family:inherit;cursor:pointer">อัปเดต</button><button id="upd-x" style="border:none;background:none;color:#fff;font-size:20px;cursor:pointer;padding:0 4px">×</button>`;
+  document.body.appendChild(b);
+  b.querySelector("#upd-go").onclick=()=>location.reload();
+  b.querySelector("#upd-x").onclick=()=>b.remove();
+}
+function updateOfflinePill(){
+  let el=document.getElementById("offline-pill");
+  if(navigator.onLine){if(el)el.remove();return;}
+  if(el)return;
+  el=document.createElement("div");el.id="offline-pill";
+  el.style.cssText="position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 8px);z-index:9997;background:var(--card2);border:1px solid var(--amber);color:var(--amber);border-radius:18px;padding:5px 12px;font-size:11px;font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.4);pointer-events:none";
+  el.textContent="📴 ออฟไลน์ — บันทึกได้ปกติ แต่ AI ใช้ไม่ได้";
+  document.body.appendChild(el);
+}
+if(typeof window!=="undefined"&&window.addEventListener){
+  window.addEventListener("online",updateOfflinePill);
+  window.addEventListener("offline",updateOfflinePill);
+  if(typeof navigator!=="undefined"&&navigator.onLine===false)setTimeout(updateOfflinePill,0);
+}
+if(typeof navigator!=="undefined"&&"serviceWorker" in navigator&&(location.protocol==="https:"||location.hostname==="localhost")){
+  navigator.serviceWorker.addEventListener("message",e=>{if(e.data&&e.data.type==="FITLOG_UPDATE")showUpdateBar();});
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("./sw.js").then(()=>{
+      // เผื่อ SW เจอเวอร์ชันใหม่ก่อนหน้าแอปพร้อมรับข้อความ → ถามซ้ำอีกรอบ
+      setTimeout(()=>{if(navigator.serviceWorker.controller)navigator.serviceWorker.controller.postMessage({type:"CHECK_UPDATE"});},4000);
+    }).catch(err=>console.warn("SW register failed",err));
+  });
+}
 
 render();
 </script>
