@@ -923,6 +923,262 @@ function getDiagram(name){
   if(/น่อง|calf/.test(n))return D.calfraise;
   return null;
 }
+
+/* ── ภาพท่าเคลื่อนไหว: จังหวะที่ 2 ของแต่ละท่า + อุปกรณ์ติดกับข้อต่อ (ขยับตามมือ/สะโพก) ── */
+const EX_ANIM={
+ squat:{to:{neck:[101,48],pelvis:[96,86],head:[106,33],headRot:5,far:{sh:[99,50],el:[88,60],wr:[96,46],hip:[94,86],kn:[98,112]},near:{sh:[101,50],el:[90,62],wr:[98,47],hip:[97,87],kn:[101,112]}},gear:[["plate","near.wr",-4,2,10]]},
+ deadlift:{to:{neck:[101,50],pelvis:[97,88],head:[104,34],headRot:5,far:{sh:[99,52],el:[99,71],wr:[100,90],hip:[95,88],kn:[97,113]},near:{sh:[101,53],el:[102,72],wr:[103,91],hip:[98,89],kn:[100,113]}},gear:[["plate","near.wr",-1,0,15]]},
+ bench:{to:{far:{el:[112,92],wr:[124,76]},near:{el:[114,94],wr:[127,77]}},gear:[["plate","near.wr",-1,-2,12]]},
+ incline:{to:{far:{el:[110,78],wr:[124,58]},near:{el:[112,80],wr:[127,58]}},gear:[["db","near.wr",-1,-2]]},
+ pushup:{to:{neck:[134,120],pelvis:[84,122],head:[148,116],far:{sh:[132,121],el:[120,126],hip:[82,122],kn:[58,123]},near:{sh:[135,122],el:[123,128],hip:[85,123],kn:[60,124]}}},
+ plank:{to:{pelvis:[84,110],far:{hip:[82,110]},near:{hip:[85,111]}}},
+ row:{to:{far:{el:[92,78],wr:[104,90]},near:{el:[94,80],wr:[106,91]}},gear:[["plate","near.wr",-1,2,14]]},
+ rdl:{to:{neck:[100,50],pelvis:[96,86],head:[103,34],headRot:5,far:{sh:[98,52],el:[98,70],wr:[99,88],hip:[94,86],kn:[88,112]},near:{sh:[100,53],el:[101,71],wr:[102,89],hip:[97,87],kn:[91,112]}},gear:[["plate","near.wr",-1,0,14]]},
+ lunge:{to:{neck:[98,40],pelvis:[98,80],head:[100,25],far:{sh:[96,42],el:[95,61],wr:[95,80],hip:[96,80],kn:[80,112]},near:{sh:[99,43],el:[99,62],wr:[99,81],hip:[99,81],kn:[118,100]}},gear:[["db","near.wr",0,2]]},
+ curl:{to:{near:{el:[102,73],wr:[104,93]}},gear:[["db","near.wr",0,0]]},
+ calfraise:{to:{neck:[100,49],pelvis:[100,87],head:[102,34],far:{sh:[98,51],el:[97,71],wr:[97,89],hip:[98,87],kn:[98,112],an:[98,133]},near:{sh:[101,52],el:[101,72],wr:[101,90],hip:[101,87],kn:[101,112],an:[101,133]}}},
+ hipthrust:{to:{pelvis:[100,108],far:{hip:[99,108],el:[80,104],wr:[97,104]},near:{hip:[101,109],el:[82,106],wr:[100,105]}},gear:[["plate","pelvis",0,-8,11]]},
+ crunch:{to:{neck:[58,128],head:[46,126],headRot:-85,far:{sh:[59,129],el:[44,120],wr:[42,128]},near:{sh:[60,130],el:[48,121],wr:[45,129]}}},
+ walk:{to:{far:{el:[94,68],wr:[88,82],kn:[94,112],an:[80,132],toe:[90,132]},near:{el:[114,66],wr:[118,82],kn:[114,108],an:[118,126],toe:[128,122]}}},
+ ohp:{to:{far:{el:[72,58],wr:[80,40]},near:{el:[128,58],wr:[120,40]}},gear:[["db","far.wr",0,-2],["db","near.wr",0,-2]]},
+ lateral:{to:{far:{el:[84,70],wr:[82,88]},near:{el:[116,70],wr:[118,88]}},gear:[["dbS","far.wr",-2,1],["dbS","near.wr",2,1]]},
+ pullup:{to:{neck:[100,56],head:[100,40],pelvis:[100,94],far:{sh:[86,58],el:[76,34],hip:[92,94],kn:[91,118],an:[93,138],toe:[88,141]},near:{sh:[114,58],el:[124,34],hip:[108,94],kn:[109,118],an:[107,138],toe:[112,141]}}},
+};
+function exPoseAt(key,t){
+  const base=P[key],A=EX_ANIM[key];if(!base||!A)return base;
+  const k=t*t*(3-2*t); // เร่ง-ผ่อนนุ่มๆ
+  const L=(a,b)=>a.map((v,i)=>+(v+(b[i]-v)*k).toFixed(1));
+  const mixSide=(s,to)=>{const o={...s};if(to)for(const j in to)if(s[j])o[j]=L(s[j],to[j]);return o;};
+  const o={...base,far:mixSide(base.far,A.to.far),near:mixSide(base.near,A.to.near)};
+  ["neck","pelvis","head"].forEach(j=>{if(A.to[j])o[j]=L(base[j],A.to[j]);});
+  if(A.to.headRot!=null)o.headRot=(base.headRot||0)+((A.to.headRot)-(base.headRot||0))*k;
+  return o;
+}
+function exFigureAt(key,t){
+  const A=EX_ANIM[key],pose=exPoseAt(key,t);if(!pose)return"";
+  if(!A)return exFigure(pose);
+  const J=(path)=>path.split(".").reduce((o,k)=>o&&o[k],pose);
+  const fore=(A.gear||[]).map(([type,at,dx,dy,r])=>{const p=J(at);if(!p)return"";const x=+(p[0]+dx).toFixed(1),y=+(p[1]+dy).toFixed(1);
+    return type==="plate"?plate(x,y,r):type==="db"?db(x,y):dbS(x,y);}).join("");
+  return exFigure({...pose,fore:A.gear?[fore]:pose.fore});
+}
+
+function diagramKeyOf(name){const d=getDiagram(name);return d?Object.keys(EXERCISE_DIAGRAMS).find(k=>EXERCISE_DIAGRAMS[k]===d)||null:null;}
+
+/* ══════════════════════════════════════
+   โหมดพาทำ (เต็มจอ): ทีละท่า ทีละเซ็ต · ภาพท่าเคลื่อนไหว · จับเวลาพัก/ท่าค้าง · เสียงพูด · จอไม่ดับ
+══════════════════════════════════════ */
+/* อ่านเป้าจากข้อความแผน: "4×8-10", "3×30-45 วินาที", "30-45 นาที" */
+function parseTarget(ex){
+  const s=String(ex&&ex.sets||"");
+  const timed=/วินาที|\bsec|นาที|\bmin|\d\s*วิ(?!่)/i.test(s)&&!/kg|กก/i.test(s);
+  const mult=(/นาที|\bmin/i.test(s)&&!/วินาที/.test(s))?60:1;
+  const m=s.match(/(\d+)\s*[xX×]\s*(\d+)(?:\s*[-–]\s*(\d+))?/);
+  if(m){const lo=+m[2],hi=m[3]?+m[3]:lo;return{sets:+m[1],lo:timed?lo*mult:lo,hi:timed?hi*mult:hi,timed};}
+  const d=s.match(/(\d+)(?:\s*[-–]\s*(\d+))?/);
+  if(timed&&d){const lo=+d[1],hi=d[2]?+d[2]:lo;return{sets:1,lo:lo*mult,hi:hi*mult,timed};}
+  return{sets:3,lo:10,hi:10,timed:false};
+}
+/* เป้าเวลาท่าค้าง: ครั้งก่อนทำได้ครบทุกเซ็ต → +5 วิ (ไม่เกินช่วงบน) */
+function holdTarget(tgt,last){
+  const ls=(last&&last.sets||[]).map(s=>+s.reps||0).filter(Boolean);
+  if(!ls.length)return tgt.lo;
+  const best=Math.max(...ls),worst=Math.min(...ls);
+  return Math.min(tgt.hi,Math.max(tgt.lo,worst>=best?best+5:best));
+}
+const VOICE_KEY="fl_voice";
+function voiceOn(){return LS.get(VOICE_KEY,true)!==false;}
+function say(t){try{if(!voiceOn()||!window.speechSynthesis)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang="th-TH";u.rate=1.05;speechSynthesis.speak(u);}catch(_){}}
+function spokenTime(s){s=Math.round(s);return s>=60?`${Math.floor(s/60)} นาที${s%60?` ${s%60} วินาที`:""}`:`${s} วินาที`;}
+function beep1(freq=880,dur=0.18){try{if(!restAudio)return;const t0=restAudio.currentTime,o=restAudio.createOscillator(),g=restAudio.createGain();o.frequency.value=freq;o.connect(g);g.connect(restAudio.destination);g.gain.setValueAtTime(0.28,t0);g.gain.exponentialRampToValueAtTime(0.001,t0+dur);o.start(t0);o.stop(t0+dur+0.02);}catch(_){}}
+let _wake=null;
+async function keepAwake(on){
+  try{
+    if(on){if(typeof navigator!=="undefined"&&navigator.wakeLock&&!_wake){_wake=await navigator.wakeLock.request("screen");if(_wake&&_wake.addEventListener)_wake.addEventListener("release",()=>{_wake=null;});}}
+    else if(_wake){const w=_wake;_wake=null;await w.release();}
+  }catch(_){_wake=null;}
+}
+if(typeof document!=="undefined"&&document.addEventListener)document.addEventListener("visibilitychange",()=>{if(GD&&document.visibilityState==="visible")keepAwake(true);}); // กลับมาที่แอป → ขอจอไม่ดับใหม่
+
+/* บันทึกเซ็ตของท่า (ทางเดียวกับหน้าบันทึกเซ็ตปกติ → สถิติ/PR/ความคืบหน้าตรงกัน) */
+function saveExerciseLog(date,name,sets,extra){
+  const clean=sets.filter(s=>s.reps||s.kg).map(s=>({reps:+s.reps||0,kg:+s.kg||0,done:true}));
+  const timed=!!(extra&&extra.timed);
+  const detail=clean.map(s=>timed?`${s.reps} วิ`:`${s.kg||0}kg×${s.reps||0}`).join(", ");
+  const log=LS.get(K.exlog(date),{});
+  log[name]={sets:clean,notes:(extra&&extra.notes)||(log[name]&&log[name].notes)||"",detail,...(timed?{timed:true}:{})};
+  LS.set(K.exlog(date),log);
+  const d=LS.get(K.workout(date),[]);if(!d.includes(name)){d.push(name);LS.set(K.workout(date),d);}
+  return timed?null:checkPR(name,date);
+}
+
+let GD=null;
+function openGuide(){
+  const plan=LS.get(K.plan,null),today=plan&&plan.days?plan.days[planDayIndex(state.date)]:null;
+  const exs=(today&&today.exercises)||[];
+  if(!exs.length){toast("วันนี้ไม่มีท่าในแผน");return;}
+  const doneList=LS.get(K.workout(state.date),[]);
+  let list=exs.filter(e=>!doneList.includes(e.name));if(!list.length)list=exs.slice();
+  const items=list.map(ex=>{
+    const tgt=parseTarget(ex),last=lastExLog(ex.name,state.date);
+    const sug=tgt.timed?null:suggestNext(ex.name,last,tgt.lo,tgt.hi);
+    const lastW=((last&&last.sets)||[]).map(s=>+s.kg||0).filter(Boolean);
+    return{ex,tgt,sug,kg:sug?sug.kg:(lastW.length?Math.max(...lastW):0),reps:tgt.timed?holdTarget(tgt,last):(sug?sug.reps:tgt.lo),done:[],saved:false,key:diagramKeyOf(ex.name)};
+  });
+  stopRestTimer();
+  GD={date:state.date,items,i:0,phase:items[0].tgt.timed?"holdReady":"set",end:0,t0:Date.now(),prs:[],advance:false,lastLeft:null};
+  let el=document.getElementById("guide");
+  if(!el){el=document.createElement("div");el.id="guide";document.body.appendChild(el);}
+  el.style.cssText="position:fixed;inset:0;z-index:9990;background:var(--bg);display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px calc(env(safe-area-inset-bottom,0px) + 14px);overflow-y:auto";
+  el.onclick=e=>{const b=e.target&&e.target.closest?e.target.closest("[data-g]"):null;if(b)guideAction(b.dataset.g);};
+  unlockRestAudio();keepAwake(true);
+  say(`เริ่มกันเลย ท่าแรก ${items[0].ex.name}`);
+  renderGuide();
+  clearInterval(window._gdI);window._gdI=setInterval(guideTick,200);
+  startGuideAnim();
+}
+function gCur(){return GD&&GD.items[GD.i];}
+function renderGuide(){
+  const el=document.getElementById("guide");if(!el||!GD)return;
+  const cur=gCur(),n=GD.items.length;
+  const totalSets=GD.items.reduce((a,x)=>a+x.tgt.sets,0),doneSets=GD.items.reduce((a,x)=>a+x.done.length,0);
+  const setNo=Math.min(cur.done.length+1,cur.tgt.sets);
+  const show=GD.phase==="rest"&&GD.advance?GD.items[GD.i+1]:cur;
+  const bs="border:none;border-radius:14px;background:var(--bg3);color:var(--text);font-family:inherit;font-weight:800;cursor:pointer";
+  const step=(lbl,val,unit,a,b)=>`<div style="flex:1;background:var(--bg3);border-radius:16px;padding:10px 8px;text-align:center">
+    <div style="font-size:10.5px;color:var(--text3);font-weight:700;margin-bottom:6px">${lbl}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+      <button data-g="${a}" aria-label="ลด${lbl}" style="${bs};width:40px;height:40px;font-size:20px;background:var(--card2)">−</button>
+      <div><span style="font-size:28px;font-weight:900;color:var(--text)">${val}</span> <span style="font-size:11px;color:var(--text3)">${unit}</span></div>
+      <button data-g="${b}" aria-label="เพิ่ม${lbl}" style="${bs};width:40px;height:40px;font-size:20px;background:var(--card2)">+</button>
+    </div></div>`;
+  const chips=cur.done.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 2px">${cur.done.map((d,i)=>`<span style="background:var(--green-bg);color:var(--green);border-radius:12px;padding:4px 10px;font-size:11.5px;font-weight:800">S${i+1} ${cur.tgt.timed?d.reps+" วิ":d.kg+"×"+d.reps} ✓</span>`).join("")}</div>`:"";
+  const big=(txt,sub,color)=>`<div style="text-align:center;margin:8px 0"><div id="g-big" style="font-size:64px;font-weight:900;line-height:1.05;color:${color||"var(--accent2)"};font-variant-numeric:tabular-nums">${txt}</div>${sub?`<div style="font-size:12.5px;color:var(--text2);margin-top:4px">${sub}</div>`:""}</div>`;
+  let panel="";
+  if(GD.phase==="set"){
+    panel=`<div style="display:flex;gap:10px">${step("น้ำหนัก",cur.kg,"กก.","kg-","kg+")}${step("จำนวนครั้ง",cur.reps,"ครั้ง","reps-","reps+")}</div>
+      ${cur.done.length===0&&cur.sug?`<div style="font-size:11.5px;color:var(--text2);line-height:1.5;margin-top:9px;text-align:center">${cur.sug.action==="up"?"🔼":cur.sug.action==="reps"?"➕":"🎯"} ${esc(cur.sug.reason)}</div>`:""}
+      ${chips}<button class="btn-save" data-g="setdone" style="margin-top:12px">✅ เซ็ต ${setNo} เสร็จ</button>`;
+  }else if(GD.phase==="holdReady"){
+    panel=`${big(fmtRest(cur.reps),`เซ็ต ${setNo}/${cur.tgt.sets} · ค้างให้ครบเวลา`)}
+      <div style="display:flex;gap:10px;justify-content:center;margin-bottom:6px"><button data-g="sec-" style="${bs};padding:9px 16px">−5 วิ</button><button data-g="sec+" style="${bs};padding:9px 16px">+5 วิ</button></div>
+      ${chips}<button class="btn-save" data-g="holdstart" style="margin-top:12px">▶️ เริ่มจับเวลา</button>`;
+  }else if(GD.phase==="countdown"){
+    panel=`${big("3","เตรียมตัว…","var(--amber)")}`;
+  }else if(GD.phase==="hold"){
+    panel=`${big(fmtRest(Math.max(0,Math.ceil((GD.end-Date.now())/1000))),`ค้างไว้! เซ็ต ${setNo}/${cur.tgt.sets}`,"var(--green)")}
+      <button class="btn btn-ghost btn-block" data-g="holdstop" style="margin-top:8px">⏹ พอแล้ว — บันทึกเท่าที่ทำได้</button>`;
+  }else if(GD.phase==="rest"){
+    const nx=GD.advance?GD.items[GD.i+1]:cur;
+    const nxt=GD.advance?`ต่อไป: ${esc(nx.ex.name)}`:(cur.tgt.timed?`ต่อไป: เซ็ต ${cur.done.length+1} · ค้าง ${fmtRest(cur.reps)}`:`ต่อไป: เซ็ต ${cur.done.length+1} · ${cur.kg}kg × ${cur.reps}`);
+    panel=`<div style="text-align:center;font-size:13px;font-weight:800;color:var(--text3);letter-spacing:1px">พัก</div>${big(fmtRest(Math.max(0,Math.ceil((GD.end-Date.now())/1000))),nxt)}
+      <div style="display:flex;gap:10px;justify-content:center"><button data-g="rest-" style="${bs};padding:10px 16px">−15</button><button data-g="rest+" style="${bs};padding:10px 16px">+15</button><button data-g="restskip" style="${bs};padding:10px 16px;color:var(--accent2)">ข้ามพัก</button></div>${chips}`;
+  }else if(GD.phase==="finished"){
+    const vol=GD.items.reduce((a,x)=>a+x.done.reduce((b,d)=>b+(+d.kg||0)*(+d.reps||0),0),0);
+    const mins=Math.round((Date.now()-GD.t0)/60000);
+    panel=`<div style="text-align:center;font-size:44px;margin-top:6px">🎉</div>
+      <div style="text-align:center;font-size:20px;font-weight:900;margin:4px 0 12px">จบการฝึกวันนี้!</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">${[["ท่า",GD.items.filter(x=>x.done.length).length],["เซ็ต",doneSets],["Volume",vol>=1000?(vol/1000).toFixed(1)+"k":vol],["นาที",mins]].map(([l,v])=>`<div style="flex:1;background:var(--bg3);border-radius:14px;padding:10px 4px;text-align:center"><div style="font-size:18px;font-weight:900">${v}</div><div style="font-size:10px;color:var(--text3)">${l}</div></div>`).join("")}</div>
+      ${GD.prs.length?`<div style="background:var(--accent-bg);border-radius:14px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;line-height:1.6">🏆 <b>สถิติใหม่</b><br>${GD.prs.map(x=>esc(x)).join("<br>")}</div>`:""}
+      <button class="btn-save" data-g="close">เสร็จสิ้น</button>`;
+  }
+  const done=GD.phase==="finished";
+  el.innerHTML=`<style>#g-fig svg{width:100%;max-width:330px;height:auto;display:block;margin:0 auto}</style>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <button data-g="close" aria-label="ปิดโหมดพาทำ" style="${bs};width:38px;height:38px;border-radius:50%;font-size:18px">×</button>
+      <div style="flex:1;text-align:center;font-size:12px;color:var(--text3);font-weight:800">${done?"สรุปผล":`ท่า ${GD.i+1}/${n} · เซ็ต ${setNo}/${cur.tgt.sets}`}</div>
+      <button data-g="voice" aria-label="เปิดปิดเสียงพูด" style="${bs};width:38px;height:38px;border-radius:50%;font-size:16px">${voiceOn()?"🔊":"🔇"}</button>
+    </div>
+    <div style="height:6px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:6px"><div style="height:100%;width:${totalSets?Math.round(doneSets/totalSets*100):0}%;background:linear-gradient(90deg,var(--green),var(--teal));transition:width .4s"></div></div>
+    ${done?"":`<div id="g-fig" style="min-height:120px">${show.key?exFigureAt(show.key,0):`<div style="text-align:center;font-size:64px;padding:20px 0">💪</div>`}</div>
+    <div style="text-align:center;font-size:20px;font-weight:900;color:var(--text);margin-top:2px">${esc(show.ex.name)}</div>
+    <div style="text-align:center;font-size:11.5px;color:var(--text3);margin-bottom:10px">เป้า ${esc(show.ex.sets||"")}${show.ex.muscle?" · "+esc(show.ex.muscle):""}</div>`}
+    <div style="flex:1"></div>
+    <div>${panel}</div>
+    ${done?"":`<button data-g="skip" style="background:none;border:none;color:var(--text3);font-family:inherit;font-size:12px;margin-top:10px;cursor:pointer;align-self:center">ข้ามท่านี้ →</button>`}`;
+}
+function guideSaveItem(it){
+  if(!it||it.saved||!it.done.length)return;
+  const pr=saveExerciseLog(GD.date,it.ex.name,it.done,{timed:it.tgt.timed});it.saved=true;
+  if(pr){const m=[];if(pr.newWeight)m.push("น้ำหนักสูงสุดใหม่ "+pr.newWeight+"kg");if(pr.new1RM)m.push("1RM ใหม่ "+pr.new1RM+"kg");if(m.length)GD.prs.push(it.ex.name+": "+m.join(" · "));}
+}
+function guideStartRest(advance){
+  const cur=gCur(),secs=restSecondsFor(cur.ex.name);
+  GD.phase="rest";GD.advance=advance;GD.end=Date.now()+secs*1000;GD.lastLeft=null;
+  if(advance){const nx=GD.items[GD.i+1];say(`พัก ${spokenTime(secs)} ต่อไป ${nx.ex.name}`);}
+  else say(cur.tgt.timed?`พัก ${spokenTime(secs)}`:`พัก ${spokenTime(secs)} เซ็ตต่อไป ${cur.kg>0?cur.kg+" กิโล ":""}${cur.reps} ครั้ง`);
+  renderGuide();
+}
+function guideAfterSet(){
+  const cur=gCur();
+  if(cur.done.length<cur.tgt.sets){guideStartRest(false);return;}
+  guideSaveItem(cur);
+  if(GD.i<GD.items.length-1){guideStartRest(true);return;}
+  GD.phase="finished";say("จบทุกท่าแล้ว เก่งมาก");renderGuide();
+}
+function guideEndRest(){
+  if(GD.advance){GD.i++;GD.advance=false;}
+  const cur=gCur();
+  GD.phase=cur.tgt.timed?"holdReady":"set";GD.lastLeft=null;
+  say(cur.tgt.timed?`${cur.ex.name} ค้าง ${spokenTime(cur.reps)}`:`ลุย ${cur.ex.name} ${cur.kg>0?cur.kg+" กิโล ":""}${cur.reps} ครั้ง`);
+  renderGuide();
+}
+function guideAction(a){
+  if(!GD)return;const cur=gCur();
+  if(a==="close"){guideSaveItem(cur);closeGuide();return;}
+  if(a==="voice"){LS.set(VOICE_KEY,!voiceOn());if(!voiceOn())try{speechSynthesis.cancel();}catch(_){}renderGuide();return;}
+  if(a==="kg-"||a==="kg+"){const st=cur.kg<20?1:2.5;cur.kg=Math.max(0,+(cur.kg+(a==="kg+"?st:-st)).toFixed(1));renderGuide();return;}
+  if(a==="reps-"||a==="reps+"){cur.reps=Math.max(1,cur.reps+(a==="reps+"?1:-1));renderGuide();return;}
+  if(a==="sec-"||a==="sec+"){cur.reps=Math.max(5,cur.reps+(a==="sec+"?5:-5));renderGuide();return;}
+  if(a==="setdone"){unlockRestAudio();cur.done.push({kg:cur.kg,reps:cur.reps});guideAfterSet();return;}
+  if(a==="holdstart"){unlockRestAudio();GD.phase="countdown";GD.end=Date.now()+3000;GD.lastLeft=null;renderGuide();return;}
+  if(a==="holdstop"){const s=Math.max(1,Math.round((Date.now()-GD.holdStart)/1000));cur.done.push({kg:0,reps:s});guideAfterSet();return;}
+  if(a==="rest-"||a==="rest+"){GD.end+=(a==="rest+"?15:-15)*1000;const p=LS.get(REST_KEY,{});p[cur.ex.name]=Math.max(15,restSecondsFor(cur.ex.name)+(a==="rest+"?15:-15));LS.set(REST_KEY,p);guideTick();return;}
+  if(a==="restskip"){guideEndRest();return;}
+  if(a==="skip"){guideSaveItem(cur);if(GD.phase==="rest"&&GD.advance){guideEndRest();return;}
+    if(GD.i<GD.items.length-1){GD.i++;GD.advance=false;const c=gCur();GD.phase=c.tgt.timed?"holdReady":"set";say(`ต่อไป ${c.ex.name}`);renderGuide();}
+    else{GD.phase="finished";renderGuide();}return;}
+}
+function guideTick(){
+  if(!GD)return;
+  const ph=GD.phase;if(ph!=="rest"&&ph!=="countdown"&&ph!=="hold")return;
+  const now=Date.now(),left=Math.ceil((GD.end-now)/1000),cur=gCur();
+  const bigEl=document.getElementById("g-big");
+  if(bigEl)bigEl.textContent=ph==="countdown"?String(Math.max(1,left)):fmtRest(Math.max(0,left));
+  if(left!==GD.lastLeft){
+    GD.lastLeft=left;
+    if(left>=1&&left<=3)beep1(660);
+    if(ph==="hold"&&left===10&&GD.holdTotal>=20)say("อีก 10 วินาที");
+  }
+  if(now<GD.end)return;
+  if(ph==="countdown"){GD.phase="hold";GD.holdStart=now;GD.holdTotal=cur.reps;GD.end=now+cur.reps*1000;GD.lastLeft=null;beep1(990,0.25);say("เริ่ม");renderGuide();}
+  else if(ph==="hold"){beep1(990,0.4);say("ครบเวลา เก่งมาก");cur.done.push({kg:0,reps:GD.holdTotal});guideAfterSet();}
+  else{beep1(990,0.3);try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(_){}guideEndRest();}
+}
+function startGuideAnim(){
+  if(typeof requestAnimationFrame!=="function")return;
+  cancelAnimationFrame(window._gdA);
+  const reduce=typeof matchMedia==="function"&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let last=0;
+  const loop=ts=>{
+    if(!GD)return;window._gdA=requestAnimationFrame(loop);
+    if(ts-last<33)return;last=ts; // ~30 เฟรม/วินาที พอลื่นและประหยัดแบต
+    const box=document.getElementById("g-fig");if(!box)return;
+    const it=GD.phase==="rest"&&GD.advance?GD.items[GD.i+1]:gCur();
+    if(!it||!it.key)return;
+    if(reduce){if(box.dataset.k!==it.key){box.dataset.k=it.key;box.innerHTML=exFigureAt(it.key,0);}return;} // ผู้ใช้ตั้งค่าลดการเคลื่อนไหว → ภาพนิ่ง
+    const period=GD.phase==="rest"?3600:it.tgt.timed?3200:2400;
+    box.innerHTML=exFigureAt(it.key,(1-Math.cos(2*Math.PI*((ts%period)/period)))/2);
+  };
+  window._gdA=requestAnimationFrame(loop);
+}
+function closeGuide(){
+  clearInterval(window._gdI);if(typeof cancelAnimationFrame==="function")cancelAnimationFrame(window._gdA);
+  keepAwake(false);try{speechSynthesis.cancel();}catch(_){}
+  GD=null;const el=document.getElementById("guide");if(el)el.remove();
+  render();
+}
+
 const MODEL="claude-sonnet-5";
 
 /* ── storage ── */
@@ -3379,6 +3635,7 @@ function viewWorkout(){
           <div style="font-size:10px;color:var(--text3);margin-top:1px">${doneSets}/${totalSets} เซ็ต</div>
         </div>
       </div>`;
+      h+=`<button class="btn-save" id="guide-start" style="margin-bottom:10px;background:linear-gradient(135deg,var(--accent),var(--teal))">▶️ เริ่มพาทำ · โหมดเต็มจอ</button>`;
       h+=`<div class="card" style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <div class="lbl">ท่าออกกำลัง · แตะเพื่อบันทึกน้ำหนัก</div>
@@ -3655,6 +3912,7 @@ function bindWorkout(){
   if(regen)regen.onclick=()=>{if(confirm("สร้างแผนใหม่? แผนเดิมจะถูกลบ")){LS.del(K.plan);render();}};
   const hru=document.getElementById("hr-update");
   if(hru)hru.onclick=openHrUpdate;
+  const gs=document.getElementById("guide-start");if(gs)gs.onclick=()=>openGuide();
   document.querySelectorAll(".excheck").forEach(b=>b.onclick=()=>{
     const n=b.dataset.ex;let d=LS.get(K.workout(state.date),[]);
     d=d.includes(n)?d.filter(x=>x!==n):[...d,n];
@@ -3726,30 +3984,42 @@ function fmtRest(s){s=Math.max(0,Math.round(s));return Math.floor(s/60)+":"+Stri
 let restT=null,restAudio=null;
 function unlockRestAudio(){try{restAudio=restAudio||new (window.AudioContext||window.webkitAudioContext)();if(restAudio.state==="suspended")restAudio.resume();}catch(_){}}
 function restBeep(){try{if(!restAudio)return;const t0=restAudio.currentTime;[0,0.28,0.56].forEach(t=>{const o=restAudio.createOscillator(),g=restAudio.createGain();o.frequency.value=880;o.connect(g);g.connect(restAudio.destination);g.gain.setValueAtTime(0.25,t0+t);g.gain.exponentialRampToValueAtTime(0.001,t0+t+0.2);o.start(t0+t);o.stop(t0+t+0.22);});}catch(_){}}
-function startRestTimer(name){
+function startPillTimer({title,secs,color,onDone,onAdjust,onStop}){
   unlockRestAudio(); // ต้องเรียกจากการแตะของผู้ใช้ เบราว์เซอร์มือถือถึงยอมให้มีเสียง
-  const secs=restSecondsFor(name);
-  restT={name,end:Date.now()+secs*1000};
+  restT={title,secs,start:Date.now(),end:Date.now()+secs*1000,onDone,onStop,lastLeft:null};
   let el=document.getElementById("rest-timer");
   if(!el){el=document.createElement("div");el.id="rest-timer";document.body.appendChild(el);} // อยู่นอก #app — render() ไม่ลบทิ้ง
-  el.style.cssText="position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 10px);z-index:9999;background:var(--card2);border:1.5px solid var(--accent);box-shadow:0 8px 24px rgba(0,0,0,.5);border-radius:24px;padding:6px 6px 6px 14px;display:flex;align-items:center;gap:6px";
+  const c=color||"var(--accent)";
+  el.style.cssText=`position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 10px);z-index:9999;background:var(--card2);border:1.5px solid ${c};box-shadow:0 8px 24px rgba(0,0,0,.5);border-radius:24px;padding:6px 6px 6px 14px;display:flex;align-items:center;gap:6px`;
   const bs="border:none;border-radius:16px;background:var(--bg3);color:var(--text2);font-family:inherit;font-size:11.5px;font-weight:800;padding:7px 9px;cursor:pointer";
-  el.innerHTML=`<span id="rt-time" style="font-size:18px;font-weight:900;color:var(--accent2);min-width:50px;font-variant-numeric:tabular-nums">${fmtRest(secs)}</span>
-    <span style="font-size:10px;color:var(--text3);max-width:92px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">พัก · ${esc(name)}</span>
-    <button data-rt="-15" style="${bs}">−15</button><button data-rt="15" style="${bs}">+15</button><button data-rt="x" style="${bs};color:var(--accent2)">ข้าม</button>`;
+  el.innerHTML=`<span id="rt-time" style="font-size:18px;font-weight:900;color:${c};min-width:50px;font-variant-numeric:tabular-nums">${fmtRest(secs)}</span>
+    <span style="font-size:10px;color:var(--text3);max-width:92px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(title)}</span>
+    ${onAdjust?`<button data-rt="-15" style="${bs}">−15</button><button data-rt="15" style="${bs}">+15</button>`:""}<button data-rt="x" style="${bs};color:${c}">${onStop?"หยุด":"ข้าม"}</button>`;
   el.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{
-    const v=b.dataset.rt;if(v==="x"){stopRestTimer();return;}
-    const d=+v;restT.end+=d*1000;
-    const pref=LS.get(REST_KEY,{});pref[name]=Math.max(15,restSecondsFor(name)+d);LS.set(REST_KEY,pref); // จำเวลาพักที่ชอบรายท่า
-    tickRest();
+    const v=b.dataset.rt;
+    if(v==="x"){const r=restT;stopRestTimer();if(r&&r.onStop)r.onStop(Math.max(1,Math.round((Date.now()-r.start)/1000)));return;}
+    const d=+v;restT.end+=d*1000;if(onAdjust)onAdjust(d);tickRest();
   });
   clearInterval(window._rtI);window._rtI=setInterval(tickRest,250);tickRest();
+}
+function startRestTimer(name){
+  startPillTimer({title:"พัก · "+name,secs:restSecondsFor(name),
+    onAdjust:d=>{const pref=LS.get(REST_KEY,{});pref[name]=Math.max(15,restSecondsFor(name)+d);LS.set(REST_KEY,pref);}, // จำเวลาพักที่ชอบรายท่า
+    onDone:()=>{restBeep();try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(_){}say("หมดเวลาพัก");toast("⏱ หมดเวลาพัก ลุยเซ็ตต่อไป 💪");}});
+}
+/* จับเวลาท่าค้าง (Plank ฯลฯ) — ครบเวลาหรือกดหยุด → ส่งจำนวนวินาทีที่ทำได้กลับไปบันทึก */
+function startHoldTimer(name,secs,onRecord){
+  say("เริ่ม");
+  startPillTimer({title:"ค้าง · "+name,secs,color:"var(--green)",
+    onDone:()=>{restBeep();try{navigator.vibrate&&navigator.vibrate([300]);}catch(_){}say("ครบเวลา เก่งมาก");toast("✅ ครบ "+secs+" วินาที");onRecord&&onRecord(secs);},
+    onStop:s=>{toast("⏹ บันทึก "+s+" วินาที");onRecord&&onRecord(s);}});
 }
 function tickRest(){
   if(!restT)return;
   const left=(restT.end-Date.now())/1000; // ใช้เวลาจริง — ล็อกจอแล้วกลับมาก็ยังนับถูก
   const t=document.getElementById("rt-time");if(t)t.textContent=fmtRest(Math.ceil(left));
-  if(left<=0){stopRestTimer();restBeep();try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(_){}toast("⏱ หมดเวลาพัก ลุยเซ็ตต่อไป 💪");}
+  const L=Math.ceil(left);if(L!==restT.lastLeft){restT.lastLeft=L;if(L>=1&&L<=3)beep1(660);}
+  if(left<=0){const r=restT;stopRestTimer();if(r.onDone)r.onDone();}
 }
 function stopRestTimer(){clearInterval(window._rtI);restT=null;const el=document.getElementById("rest-timer");if(el)el.remove();}
 
@@ -3763,6 +4033,7 @@ function openExLog(ex){
   const targetReps=sm?+sm[2]:10;
   const repMax=sm&&sm[3]?+sm[3]:targetReps;
   const sug=suggestNext(ex.name,last,targetReps,repMax);
+  const tInfo=parseTarget(ex),holdSecs=tInfo.timed?holdTarget(tInfo,last):0;
   // สร้าง set rows: ใช้ค่าเดิมถ้ามี ไม่งั้นใช้ค่าจากครั้งก่อน/เป้าหมาย
   let sets=[];
   if(cur.sets&&cur.sets.length){sets=cur.sets.map(s=>({...s}));}
@@ -3805,6 +4076,7 @@ function openExLog(ex){
         <button class="btn btn-primary" id="el-use-sug" style="flex:1;font-size:12px;padding:8px">ใช้คำแนะนำ</button>
         <button class="btn btn-ghost" id="el-use-last" style="flex:1;font-size:12px;padding:8px">📋 ใช้ค่าครั้งก่อน</button>
       </div></div>`:(last?.sets?.length?`<button class="btn btn-ghost btn-block" id="el-use-last" style="margin-bottom:10px">📋 ใช้ค่าครั้งก่อน</button>`:"")}
+    ${tInfo.timed?`<button class="btn-save" id="el-hold-btn" style="margin:0 0 10px">⏱ จับเวลาค้าง ${fmtRest(holdSecs)}</button>`:""}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:11px;color:var(--text3)">
       <span style="flex:1">⏱ ติ๊กเซ็ตเสร็จ → เริ่มจับเวลาพักอัตโนมัติ (${fmtRest(restSecondsFor(ex.name))})</span>
       <button class="btn btn-ghost" id="el-rest-btn" style="width:auto;font-size:11px;padding:6px 11px">เริ่มพักเลย</button>
@@ -3835,7 +4107,7 @@ function openExLog(ex){
     box.innerHTML=`
       <div style="display:flex;gap:8px;padding:0 6px 6px;font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">
         <div style="width:34px">เซ็ต</div>
-        <div style="flex:1;text-align:center">ครั้ง (reps)</div>
+        <div style="flex:1;text-align:center">${tInfo.timed?"วินาที":"ครั้ง (reps)"}</div>
         <div style="flex:1;text-align:center">น้ำหนัก (kg)</div>
         <div style="width:34px"></div>
       </div>
@@ -3862,13 +4134,19 @@ function openExLog(ex){
   const ul=document.getElementById("el-use-last");
   if(ul)ul.onclick=()=>{window._elSets=last.sets.map(s=>({reps:s.reps,kg:s.kg,done:false}));renderSets();toast("📋 คัดลอกค่าครั้งก่อนแล้ว");};
   const rb=document.getElementById("el-rest-btn");if(rb)rb.onclick=()=>startRestTimer(ex.name);
+  const hb=document.getElementById("el-hold-btn");
+  if(hb)hb.onclick=()=>startHoldTimer(ex.name,holdSecs,secs=>{
+    if(!document.getElementById("el-sets"))return; // ปิดหน้าไปแล้ว — แจ้งผลอย่างเดียว
+    const i=window._elSets.findIndex(s=>!s.done),idx=i<0?window._elSets.length:i;
+    window._elSets[idx]={reps:secs,kg:0,done:true};renderSets();
+  });
   document.getElementById("el-addset").onclick=()=>{const l=window._elSets[window._elSets.length-1];window._elSets.push({reps:l?.reps??targetReps,kg:l?.kg??"",done:false});renderSets();};
   document.getElementById("el-save").onclick=()=>{
     const sets=window._elSets.filter(s=>s.reps||s.kg);
     const notes=document.getElementById("el-notes").value.trim();
-    const detail=sets.length?sets.map(s=>(s.kg||0)+"kg×"+(s.reps||0)).join(", "):"";
+    const detail=sets.length?sets.map(s=>tInfo.timed?(s.reps||0)+" วิ":(s.kg||0)+"kg×"+(s.reps||0)).join(", "):"";
     const log=LS.get(K.exlog(state.date),{});
-    log[ex.name]={sets,notes,detail};
+    log[ex.name]={sets,notes,detail,...(tInfo.timed?{timed:true}:{})};
     LS.set(K.exlog(state.date),log);
     let d=LS.get(K.workout(state.date),[]);if(!d.includes(ex.name)){d.push(ex.name);LS.set(K.workout(state.date),d);}
     // ตรวจ PR (สถิติใหม่)
