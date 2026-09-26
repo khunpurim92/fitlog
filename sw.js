@@ -3,7 +3,7 @@
    - มีเน็ตเมื่อไหร่ โหลดเวอร์ชันใหม่เบื้องหลัง ถ้าเปลี่ยนจะบอกหน้าแอปให้ขึ้นแถบ "อัปเดต"
    - ไม่ยุ่งกับการเรียก AI / บาร์โค้ด / YouTube (ต้องใช้เน็ตจริงเสมอ)
    ไม่ต้องแก้เลขเวอร์ชันเวลาอัป index.html ใหม่ — ระบบเทียบเนื้อหาเอง */
-const SHELL="fitlog-shell-v1", RUNTIME="fitlog-runtime-v1";
+const SHELL="fitlog-shell-v1", RUNTIME="fitlog-runtime-v1"; // sw v2: รองรับตรวจเวอร์ชันจากหน้าแอป
 const SHELL_FILES=["./index.html","./manifest.webmanifest","./icon-192.png","./icon-512.png","./apple-touch-icon.png"];
 const PASSTHRU=["api.anthropic.com","world.openfoodfacts.org","www.youtube.com","youtube.com"];
 let pendingUpdate=false;
@@ -66,6 +66,14 @@ self.addEventListener("fetch",e=>{
   const req=e.request;if(req.method!=="GET")return;
   const url=new URL(req.url);
   if(PASSTHRU.some(h=>url.hostname===h))return; // ต้องออกเน็ตจริง
+  // หน้าแอปขอตรวจเวอร์ชัน (?fresh=...) → ไปเน็ตจริง แล้วเก็บของใหม่ไว้ พอกด "อัปเดต" จะได้ของใหม่ทันที
+  if(url.origin===self.location.origin&&url.searchParams.has("fresh")){
+    e.respondWith(fetch(req,{cache:"no-store"}).then(async r=>{
+      if(r&&r.ok&&/\/(index\.html)?$/.test(url.pathname)){const c=await caches.open(SHELL);await c.put("./index.html",r.clone());}
+      return r;
+    }));
+    return;
+  }
   if(req.mode==="navigate"||(url.origin===self.location.origin&&/\/(index\.html)?$/.test(url.pathname))){handleShell(e);return;}
   if(url.hostname==="fonts.googleapis.com"||url.hostname==="fonts.gstatic.com"){staleWhileRevalidate(e,RUNTIME);return;}
   if(url.origin===self.location.origin){staleWhileRevalidate(e,SHELL);return;}
