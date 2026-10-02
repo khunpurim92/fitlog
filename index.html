@@ -1206,7 +1206,7 @@ function closeGuide(){
 }
 
 const MODEL="claude-sonnet-5";
-const APP_VERSION="2026.09.28.2"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
+const APP_VERSION="2026.10.02"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
 
 /* ── storage ── */
 const LS={
@@ -1387,7 +1387,7 @@ function getKey(){return LS.get(K.key,"")||"";}
 /* Sonnet 5: คิดก่อนตอบเป็นค่าเริ่มต้น และการคิดนับรวมใน max_tokens + ตัวนับ token ใหม่ใช้มากขึ้น ~30%
    think=false (งานข้อมูล/JSON): ปิดการคิดเบื้องหลัง — prompt ให้คิดเป็นขั้นตอนในคำตอบอยู่แล้ว, เพิ่มโควตา 35%
    think=true  (โค้ช): เปิดการคิด ให้โควตาพอทั้งคิดและตอบ, รอนานขึ้น */
-async function callClaude({system,messages,max_tokens=1200,think=false}){
+async function callClaude({system,messages,max_tokens=1200,think=false,effort,chat=false}){
   const key=getKey();
   if(!key)throw new Error("NO_KEY");
   let res;
@@ -1397,7 +1397,7 @@ async function callClaude({system,messages,max_tokens=1200,think=false}){
     res=await fetch("https://api.anthropic.com/v1/messages",{
       method:"POST",signal:ctrl.signal,
       headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body:JSON.stringify({model:MODEL,max_tokens:think?Math.max(16000,max_tokens):Math.ceil(max_tokens*1.35),...(think?{}:{thinking:{type:"disabled"}}),...(system?{system}:{}),messages})
+      body:JSON.stringify({model:MODEL,max_tokens:think?Math.max(16000,max_tokens):(chat?Math.max(6000,Math.ceil(max_tokens*1.35)):Math.ceil(max_tokens*1.35)),...(think?{}:{thinking:{type:"disabled"}}),...(effort&&effort!=="high"?{output_config:{effort}}:{}),...(system?{system}:{}),messages})
     });
   }catch(netErr){
     clearTimeout(timer);
@@ -1415,7 +1415,7 @@ async function callClaude({system,messages,max_tokens=1200,think=false}){
   const out=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
   if(!out)throw new Error(data.stop_reason==="max_tokens"?"THINK_OUT":"EMPTY: API ตอบกลับแต่ไม่มีข้อความ (stop_reason: "+(data.stop_reason||"?")+")");
   if(data.stop_reason==="max_tokens"){
-    if(!think)throw new Error("TRUNCATED"); // งานข้อมูล: คำตอบถูกตัด = ข้อมูลไม่ครบ ใช้ไม่ได้
+    if(!think&&!chat)throw new Error("TRUNCATED"); // งานข้อมูล: คำตอบถูกตัด = ข้อมูลไม่ครบ ใช้ไม่ได้ (แชทแสดงส่วนที่ได้ได้)
     return out+"\n\n(คำตอบยาวเกินจึงถูกตัดท้าย — ถามต่อได้เลยครับ)";
   }
   if(data.stop_reason==="refusal")throw new Error("REFUSAL");
@@ -4614,6 +4614,22 @@ function viewMore(){
 
   <div class="card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
+      <div class="icf icf-accent" style="width:32px;height:32px;font-size:16px">🧠</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:var(--text)">ความลึกของโค้ช</div>
+        <div style="font-size:10px;color:var(--text3)">คุมค่าใช้จ่าย AI ↔ ความละเอียดของคำแนะนำ</div>
+      </div>
+    </div>
+    <div class="seg" id="coach-mode" style="margin-bottom:9px">
+      <button data-cmode="auto" class="${getCoachMode()==="auto"?"on":""}">🧠 อัตโนมัติ</button>
+      <button data-cmode="save" class="${getCoachMode()==="save"?"on":""}">⚡ ประหยัด</button>
+      <button data-cmode="deep" class="${getCoachMode()==="deep"?"on":""}">🔬 ลึกเสมอ</button>
+    </div>
+    <div class="small">${getCoachMode()==="auto"?"คิดลึกเมื่อแนบรูป/ขอวิเคราะห์/ปรับแผน/ปรับเป้า ส่วนคำถามทั่วไปคิดแบบประหยัด และคำขอบคุณไม่คิดเลย":getCoachMode()==="save"?"ทุกข้อความไม่คิดลึก ถูกที่สุด คำตอบอาจสั้นและเจาะจงน้อยลง — เหมาะลองดูว่าพอไหม":"คิดลึกทุกข้อความ แพงสุด ละเอียดสุด"}</div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
       <div class="icf icf-teal" style="width:32px;height:32px;font-size:16px">📝</div>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:800;color:var(--text)">สมุดโค้ช</div>
@@ -4769,6 +4785,7 @@ function stat(l,v,u,hl){
 }
 
 function bindMore(){
+  document.querySelectorAll("#coach-mode button").forEach(b=>b.onclick=()=>{LS.set(COACH_MODE_KEY,b.dataset.cmode);render();toast("✅ ตั้งโหมดโค้ชแล้ว");});
   const vc=document.getElementById("ver-check");if(vc)vc.onclick=()=>checkForUpdate(true);
   const vh=document.getElementById("ver-hard");if(vh)vh.onclick=()=>{if(confirm("ล้างแคชแอปแล้วโหลดใหม่? (ข้อมูลของคุณไม่หาย)"))hardReload();};
   // ── ไลฟ์สไตล์การกิน ──
@@ -5096,6 +5113,24 @@ function extractLookback(text){
   return 7; // default
 }
 
+/* ══ โค้ช: เลือกความลึกของการคิดตามความยากของข้อความ (ประหยัด token เฉพาะที่ไม่ต้องคิดลึก) ══
+   ลึก   = คิดเต็มที่ (effort high — ค่าเริ่มต้น): แนบรูป, ขอวิเคราะห์/ปรับแผน/ปรับเป้า, ถามย้อนหลังนาน, ข้อความยาว
+   ปกติ  = คิดแบบประหยัด (effort medium): คำถามทั่วไป เช่น "เย็นนี้กินอะไรดี"
+   เบา   = ไม่คิด (effort low): คำขอบคุณ/รับทราบ ที่ไม่ต้องใช้ความคิด */
+const COACH_MODE_KEY="fl_coach_mode"; // auto | save | deep
+function getCoachMode(){const m=LS.get(COACH_MODE_KEY,"auto");return m==="save"||m==="deep"?m:"auto";}
+const COACH_DEEP_RE=/แผน|ปรับ|วิเคราะห์|ทำไม|ไม่ลด|ไม่ลง|นิ่ง|โฟกัส|เปรียบเทียบ|ประเมิน|สรุป|เป้า|ลดแคล|เพิ่มแคล|เร่ง|งานแต่ง|สัมมนา|งานเลี้ยง|เที่ยว|ทริป|แข่ง|plateau|tdee|bmr/i;
+const COACH_TRIVIAL_RE=/^(ขอบคุณ|ขอบใจ|โอเค|ok|okay|ได้เลย|เข้าใจ(แล้ว)?|รับทราบ|ครับ|ค่ะ|คับ|ดีเลย|เยี่ยม|เจ๋ง|สุดยอด|thanks?|thx|5{3,})((ครับ|ค่ะ|คะ|คับ|นะ|เลย|มาก|จ้า|จ้ะ|ครับผม)*)[\s!.…ๆ🙏👍😊]*$/i;
+function coachRoute(text,hasImages,lookbackDays){
+  const mode=getCoachMode();
+  if(mode==="deep")return{think:true,chat:true};
+  if(mode==="save")return{think:false,effort:"low",chat:true};
+  const t=String(text||"").trim();
+  if(hasImages||lookbackDays>7||t.length>140||COACH_DEEP_RE.test(t))return{think:true,chat:true};
+  if(t.length<=30&&COACH_TRIVIAL_RE.test(t))return{think:false,effort:"low",chat:true};
+  return{think:true,effort:"medium",chat:true};
+}
+
 function buildContext(lookbackDays=7){
   const p=LS.get(K.profile,null),t=computeTargets(p,latestBody()),lb=latestBody();
   // สำคัญ: ใช้วันจริงเสมอ (ไม่ใช่ state.date) — ผู้ใช้อาจกำลังเปิดดูข้อมูลวันอื่นค้างไว้
@@ -5381,7 +5416,7 @@ ${buildContext(lookbackDays)}`;
     if(coachHistory.length>40)coachHistory=coachHistory.slice(-40);
     let hist=coachHistory.slice(-20);
     while(hist.length&&hist[0].role!=="user")hist.shift(); // API ต้องเริ่มด้วยข้อความผู้ใช้
-    const reply=await callClaude({max_tokens:3000,system:sys,messages:hist,think:true});
+    const reply=await callClaude({max_tokens:3000,system:sys,messages:hist,...coachRoute(text,imgs.length>0,lookbackDays)});
     coachHistory.push({role:"assistant",content:reply});
     // แยก <PLAN>...</PLAN> และ <DCAL>...</DCAL> ออกจากข้อความ
     let cleanText=reply,planObj=null,dcalObj=null;
