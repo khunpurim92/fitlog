@@ -926,29 +926,53 @@ const P={
 };
 const EXERCISE_DIAGRAMS={};
 Object.keys(P).forEach(k=>EXERCISE_DIAGRAMS[k]=exFigure(P[k]));
-function getDiagram(name){
+function getDiagramKey(name){
   const n=(name||"").toLowerCase();
-  const D=EXERCISE_DIAGRAMS;
-  if(/เดิน|walk|treadmill|ลู่วิ่ง|วิ่ง|\brun|\bjog|zone ?2|คาร์ดิโอ|cardio|elliptical/.test(n))return D.walk;
-  if(/leg press|เลกเพรส|เลก เพรส/.test(n))return D.legpress;
-  if(/ลันจ์|lunge|split squat|step.?up/.test(n))return D.lunge;
-  if(/rdl|romanian|สติฟ|stiff.?leg|good ?morning/.test(n))return D.rdl;
-  if(/เดดลิฟท์|deadlift/.test(n))return D.deadlift;
-  if(/สควอท|squat|goblet/.test(n))return D.squat;
-  if(/(incline|decline|อินไคลน์)/.test(n)&&/(press|fly|เพรส)/.test(n))return D.incline;
-  if(/เบนช์|bench|chest press|flat press|chest fly|pec fly|ฟลาย/.test(n))return D.bench;
-  if(/วิดพื้น|push.?up|pushup/.test(n))return D.pushup;
-  if(/ดึงข้อ|pull.?up|chin.?up|lat pull|pulldown|pull.?down/.test(n))return D.pullup;
-  if(/โอเวอร์เฮด|overhead|shoulder press|military|ohp|arnold/.test(n))return D.ohp;
-  if(/lateral|ยกข้าง|side raise/.test(n))return D.lateral;
-  if(/โรว์|โร่|row/.test(n))return D.row;
-  if(/hip thrust|glute bridge|กลูท|บริดจ์|bridge/.test(n))return D.hipthrust;
-  if(/แพลงค์|plank/.test(n))return D.plank;
-  if(/เคิร์ล|curl|hammer/.test(n)&&!/leg curl|ขา/.test(n))return D.curl;
-  if(/ครัน|crunch|sit.?up|leg raise|ab wheel/.test(n))return D.crunch;
-  if(/น่อง|calf/.test(n))return D.calfraise;
+  const isDb=/dumbbell|ดัมเบล|\bdb\b/.test(n),isKb=/kettlebell|เคทเทิลเบล|แคทเทิลเบล/.test(n);
+  // ท่าที่มีคำว่า walk/curl/extension แต่ไม่มีภาพที่ถูก → ไม่แสดงภาพ ดีกว่าแสดงภาพผิดท่า
+  if(/farmer|ฟาร์มเมอร์|wrist curl|เคิร์ลข้อมือ|leg curl|เลกเคิร์ล/.test(n))return null;
+  if(/walking lunge|ลันจ์เดิน/.test(n))return"lunge";
+  if(/woodchop|วู้ดช็อป/.test(n))return"woodchop";
+  if(/russian twist|รัสเซียน/.test(n))return"russiantwist";
+  if(/side plank|แพลงก์ด้านข้าง|แพลงค์ด้านข้าง|แพลงก์ข้าง/.test(n))return"sideplank";
+  if(/renegade|เรเนเกด|โรว์ท่าแพลงก์/.test(n))return"renegade";
+  if(/hip thrust|ฮิปทรัสต์/.test(n))return"hipthrust";
+  if(/glute bridge|กลูทบริดจ์|บริดจ์|bridge/.test(n))return"glutebridge";
+  if(/เดิน|walk|treadmill|ลู่วิ่ง|วิ่ง|\brun|\bjog|zone ?2|คาร์ดิโอ|cardio|elliptical/.test(n))return"walk";
+  if(/leg press|เลกเพรส|เลก เพรส/.test(n))return"legpress";
+  if(/bulgarian|บัลแกเรียน/.test(n))return"bulgarian";
+  if(/step.?up|สเต็ปอัพ|สเตปอัพ/.test(n))return"stepup";
+  if(/ลันจ์|lunge|split squat/.test(n))return"lunge";
+  if(/(single|one).?leg.*(rdl|romanian|deadlift)|เดดลิฟท์ขาเดียว/.test(n))return"slrdl";
+  if(/rdl|romanian|สติฟ|stiff.?leg|good ?morning/.test(n))return"rdl";
+  if(/เดดลิฟท์|deadlift/.test(n))return isDb?"dbdeadlift":"deadlift";
+  if(/goblet|กอบเล็ต|สควอทถือ/.test(n))return isKb?"kbgoblet":"goblet";
+  if(/สควอท|squat/.test(n))return"squat";
+  if(/pullover|พูลโอเวอร์/.test(n))return"pullover";
+  if(/(fly|flye|ฟลาย)/.test(n)&&/(reverse|rear|รีเวิร์ส|ไหล่หลัง)/.test(n))return"revfly";
+  if(/(fly|flye|ฟลาย)/.test(n))return/(incline|อินไคลน์|เอน)/.test(n)?"inclinefly":"fly";
+  if(/kickback|คิกแบ็ก|คิกแบค/.test(n))return"kickback";
+  if(/(tricep|ไตรเซป).*(extension|เอ็กซ์เทนชั่น)|skull|สกัล/.test(n))return/overhead|เหนือหัว/.test(n)?null:"skull";
+  if(/(incline|อินไคลน์|เอน).*(curl|เคิร์ล)|(curl|เคิร์ล).*(incline|อินไคลน์|เอน)/.test(n))return"inclinecurl";
+  if(/concentration|คอนเซนเทรชั่น/.test(n))return"conccurl";
+  if(/(incline|decline|อินไคลน์|เอน)/.test(n)&&/(press|เพรส)/.test(n))return"incline";
+  if(/เบนช์|bench|chest press|flat press|floor press|เพรสอก/.test(n))return isDb?"dbbench":"bench";
+  if(/วิดพื้น|push.?up|pushup/.test(n))return"pushup";
+  if(/ดึงข้อ|pull.?up|chin.?up|lat pull|pulldown|pull.?down/.test(n))return"pullup";
+  if(/front raise|ยก.{0,12}หน้า/.test(n))return"frontraise";
+  if(/lateral|ยก.{0,12}ข้าง|side raise/.test(n))return"lateral";
+  if(/(seated|นั่ง).*(shoulder press|ดันไหล่|overhead press)|arnold|อาร์โนลด์/.test(n))return"seatedohp";
+  if(/โอเวอร์เฮด|overhead press|shoulder press|military|ohp|ดันไหล่/.test(n))return"ohp";
+  if(/chest.?supported|พาดอก/.test(n))return"csrow";
+  if(/(single|one).?arm.*row|โรว์.*ข้างเดียว/.test(n))return"row1";
+  if(/โรว์|โร่|row/.test(n))return isDb?"dbrow":"row";
+  if(/แพลงก์|แพลงค์|plank/.test(n))return"plank";
+  if(/เคิร์ล|curl|hammer/.test(n))return"curl";
+  if(/ครัน|crunch|sit.?up|leg raise|ab wheel/.test(n))return"crunch";
+  if(/น่อง|calf/.test(n))return"calfraise";
   return null;
 }
+function getDiagram(name){const k=getDiagramKey(name);return k&&EXERCISE_DIAGRAMS[k]?EXERCISE_DIAGRAMS[k]:null;}
 
 /* ── ภาพท่าเคลื่อนไหว: จังหวะที่ 2 ของแต่ละท่า + อุปกรณ์ติดกับข้อต่อ (ขยับตามมือ/สะโพก) ── */
 const EX_ANIM={
@@ -970,6 +994,107 @@ const EX_ANIM={
  lateral:{to:{far:{el:[84,70],wr:[82,88]},near:{el:[116,70],wr:[118,88]}},gear:[["dbS","far.wr",-2,1],["dbS","near.wr",2,1]]},
  pullup:{to:{neck:[100,56],head:[100,40],pelvis:[100,94],far:{sh:[86,58],el:[76,34],hip:[92,94],kn:[91,118],an:[93,138],toe:[88,141]},near:{sh:[114,58],el:[124,34],hip:[108,94],kn:[109,118],an:[107,138],toe:[112,141]}}},
 };
+/* ── ท่าดัมเบล/เล่นที่บ้าน (ชุดเพิ่ม) ── */
+const dbV=(x,y)=>`<rect x="${x-2}" y="${y-7}" width="4" height="14" rx="2" fill="${EQ2}"/><rect x="${x-5}" y="${y-10}" width="10" height="4" rx="1.5" fill="${EQ2}"/><rect x="${x-5}" y="${y+6}" width="10" height="4" rx="1.5" fill="${EQ2}"/>`;
+const kb=(x,y)=>`<path d="M${x-5},${y+2} Q${x},${y-8} ${x+5},${y+2}" fill="none" stroke="${EQ2}" stroke-width="2.6"/><circle cx="${x}" cy="${y+9}" r="7.5" fill="#2A2838" stroke="${EQ2}" stroke-width="2.6"/>`;
+const GEAR={plate:(x,y,r)=>plate(x,y,r),db:(x,y)=>db(x,y),dbS:(x,y)=>dbS(x,y),dbV:(x,y)=>dbV(x,y),kb:(x,y)=>kb(x,y)};
+const benchLow=(x1,x2,y)=>benchH(x1,x2,y);
+const legsStand=(x)=>({far:{hip:[x-2,86],kn:[x-3,112],an:[x-4,137],toe:[x+7,139]},near:{hip:[x+1,86],kn:[x+1,112],an:[x,137],toe:[x+11,139]}});
+const lyingLegs={far:{hip:[84,89],kn:[60,82],an:[58,137],toe:[48,139]},near:{hip:[84,91],kn:[64,84],an:[63,137],toe:[53,139]}};
+Object.assign(P,{
+ fly:{neck:[128,88],pelvis:[84,90],head:[143,86],headRot:90,
+   far:{...lyingLegs.far,sh:[126,87],el:[125,70],wr:[124,52]},near:{...lyingLegs.near,sh:[128,88],el:[128,70],wr:[127,52]},back:[benchH(64,152,98)]},
+ inclinefly:{...P.incline,fore:undefined},
+ pullover:{neck:[128,88],pelvis:[84,90],head:[143,86],headRot:90,
+   far:{...lyingLegs.far,sh:[126,87],el:[126,70],wr:[126,52]},near:{...lyingLegs.near,sh:[128,88],el:[128,70],wr:[128,52]},back:[benchH(64,152,98)]},
+ row1:{neck:[104,80],pelvis:[66,86],head:[116,76],headRot:70,
+   far:{sh:[102,81],el:[103,90],wr:[104,99],hip:[65,86],kn:[60,98],an:[40,98],toe:[36,98]},
+   near:{sh:[105,82],el:[106,100],wr:[106,118],hip:[68,87],kn:[80,112],an:[76,137],toe:[87,139]},back:[benchH(32,112,101)]},
+ csrow:{neck:[114,82],pelvis:[76,106],head:[125,76],headRot:60,
+   far:{sh:[112,84],el:[114,102],wr:[115,120],hip:[75,106],kn:[62,123],an:[47,137],toe:[41,139]},
+   near:{sh:[114,85],el:[116,103],wr:[117,121],hip:[77,107],kn:[64,124],an:[49,137],toe:[43,139]},
+   back:[`<path d="M72,116 L120,86" stroke="${EQ}" stroke-width="7" stroke-linecap="round"/><path d="M80,112 V141 M112,92 V141" stroke="${EQ}" stroke-width="4"/>`]},
+ renegade:{neck:[136,96],pelvis:[84,106],head:[150,92],headRot:70,
+   far:{sh:[134,98],el:[134,116],wr:[134,132],hip:[82,106],kn:[58,114],an:[34,124],toe:[30,137]},
+   near:{sh:[137,99],el:[138,117],wr:[138,132],hip:[85,107],kn:[60,115],an:[36,126],toe:[33,137]}},
+ seatedohp:{neck:[100,64],pelvis:[98,102],head:[102,49],
+   far:{sh:[98,66],el:[97,82],wr:[101,62],hip:[97,102],kn:[122,104],an:[121,137],toe:[132,139]},
+   near:{sh:[101,67],el:[100,83],wr:[104,62],hip:[99,103],kn:[124,105],an:[123,137],toe:[134,139]},back:[benchH(70,126,108)]},
+ frontraise:{neck:[100,48],pelvis:[100,86],head:[102,33],...legsStand(100),
+   far:{...legsStand(100).far,sh:[98,50],el:[98,70],wr:[99,88]},near:{...legsStand(100).near,sh:[101,51],el:[102,71],wr:[103,89]}},
+ revfly:{view:"front",neck:[100,74],pelvis:[100,94],head:[100,63],
+   far:{sh:[86,77],el:[86,95],wr:[87,112],hip:[92,94],kn:[89,116],an:[87,137],toe:[81,139]},
+   near:{sh:[114,77],el:[114,95],wr:[113,112],hip:[108,94],kn:[111,116],an:[113,137],toe:[119,139]}},
+ inclinecurl:{...P.incline,fore:undefined,
+   far:{...P.incline.far,el:[118,88],wr:[115,106]},near:{...P.incline.near,el:[120,89],wr:[117,107]}},
+ conccurl:{neck:[114,72],pelvis:[94,102],head:[124,64],headRot:40,
+   far:{sh:[112,74],el:[118,90],wr:[124,102],hip:[93,102],kn:[122,104],an:[124,137],toe:[135,139]},
+   near:{sh:[114,75],el:[121,100],wr:[123,122],hip:[95,103],kn:[124,105],an:[126,137],toe:[137,139]},back:[benchH(60,112,108)]},
+ skull:{neck:[128,88],pelvis:[84,90],head:[143,86],headRot:90,
+   far:{...lyingLegs.far,sh:[126,87],el:[129,68],wr:[128,50]},near:{...lyingLegs.near,sh:[128,88],el:[131,68],wr:[130,50]},back:[benchH(64,152,98)]},
+ kickback:{neck:[104,80],pelvis:[66,86],head:[116,76],headRot:70,
+   far:{sh:[102,81],el:[103,90],wr:[104,99],hip:[65,86],kn:[60,98],an:[40,98],toe:[36,98]},
+   near:{sh:[105,82],el:[88,84],wr:[90,102],hip:[68,87],kn:[80,112],an:[76,137],toe:[87,139]},back:[benchH(32,112,101)]},
+ goblet:{neck:[104,58],pelvis:[82,96],head:[114,42],headRot:18,
+   far:{sh:[102,60],el:[106,76],wr:[112,64],hip:[80,96],kn:[110,103],an:[103,137],toe:[114,139]},
+   near:{sh:[104,60],el:[108,78],wr:[114,65],hip:[83,97],kn:[114,104],an:[106,137],toe:[118,139]}},
+ bulgarian:{neck:[98,50],pelvis:[98,90],head:[100,35],
+   far:{sh:[96,52],el:[95,71],wr:[95,90],hip:[96,90],kn:[80,116],an:[62,103],toe:[54,102]},
+   near:{sh:[99,53],el:[99,72],wr:[99,91],hip:[99,91],kn:[123,108],an:[120,137],toe:[131,139]},back:[benchH(28,72,107)]},
+ slrdl:{neck:[100,50],pelvis:[96,86],head:[103,34],
+   far:{sh:[98,52],el:[98,70],wr:[99,88],hip:[95,86],kn:[93,111],an:[90,132],toe:[97,135]},
+   near:{sh:[100,53],el:[101,71],wr:[102,89],hip:[97,87],kn:[100,112],an:[100,137],toe:[111,139]}},
+ stepup:{neck:[98,48],pelvis:[95,86],head:[100,33],
+   far:{sh:[96,50],el:[95,69],wr:[95,88],hip:[94,86],kn:[90,112],an:[88,137],toe:[99,139]},
+   near:{sh:[99,51],el:[99,70],wr:[99,89],hip:[96,87],kn:[118,92],an:[116,106],toe:[127,107]},
+   back:[`<rect x="104" y="108" width="54" height="33" rx="3" fill="${EQ}"/>`]},
+ glutebridge:{neck:[54,131],pelvis:[92,133],head:[42,128],headRot:-80,
+   far:{sh:[55,132],el:[72,136],wr:[90,137],hip:[91,133],kn:[113,124],an:[136,116],toe:[142,111]},
+   near:{sh:[56,133],el:[74,137],wr:[92,138],hip:[93,134],kn:[116,112],an:[124,137],toe:[134,139]}},
+ sideplank:{neck:[134,104],pelvis:[86,116],head:[146,100],headRot:70,
+   far:{sh:[132,106],el:[132,134],wr:[152,135],hip:[85,116],kn:[62,125],an:[38,134],toe:[33,139]},
+   near:{sh:[135,105],el:[136,86],wr:[136,66],hip:[87,117],kn:[63,125],an:[39,133],toe:[35,138]}},
+ russiantwist:{neck:[74,96],pelvis:[96,126],head:[64,86],headRot:-40,
+   far:{sh:[76,98],el:[86,112],wr:[100,107],hip:[95,126],kn:[118,103],an:[138,115],toe:[147,111]},
+   near:{sh:[78,99],el:[88,113],wr:[102,108],hip:[97,127],kn:[120,105],an:[140,117],toe:[149,113]}},
+ woodchop:{view:"front",neck:[100,50],pelvis:[100,88],head:[100,34],
+   far:{sh:[86,52],el:[76,40],wr:[70,27],hip:[92,88],kn:[89,113],an:[86,137],toe:[80,139]},
+   near:{sh:[114,52],el:[94,40],wr:[73,28],hip:[108,88],kn:[111,113],an:[114,137],toe:[120,139]}},
+ dbbench:{...P.bench,fore:undefined},dbrow:{...P.row,fore:undefined},dbdeadlift:{...P.deadlift,fore:undefined},
+});
+P.kbgoblet={...P.goblet};
+Object.assign(EX_ANIM,{
+ fly:{to:{far:{el:[125,96],wr:[124,108]},near:{el:[132,96],wr:[130,108]}},gear:[["db","near.wr",0,0]]},
+ inclinefly:{to:{far:{el:[118,72],wr:[121,88]},near:{el:[124,74],wr:[127,90]}},gear:[["db","near.wr",0,-1]]},
+ pullover:{to:{far:{el:[143,82],wr:[160,86]},near:{el:[145,83],wr:[162,88]}},gear:[["dbV","near.wr",0,-2]]},
+ row1:{to:{near:{el:[92,77],wr:[101,92]}},gear:[["db","near.wr",0,2]]},
+ csrow:{to:{far:{el:[100,96],wr:[108,106]},near:{el:[102,97],wr:[110,107]}},gear:[["db","near.wr",0,2]]},
+ renegade:{to:{near:{el:[124,98],wr:[134,112]}},gear:[["db","far.wr",0,3],["db","near.wr",0,3]]},
+ seatedohp:{to:{far:{el:[98,46],wr:[100,28]},near:{el:[101,47],wr:[103,28]}},gear:[["db","near.wr",0,-1]]},
+ frontraise:{to:{far:{el:[117,52],wr:[135,53]},near:{el:[120,53],wr:[138,54]}},gear:[["dbS","near.wr",2,0]]},
+ revfly:{to:{far:{el:[68,80],wr:[50,82]},near:{el:[132,80],wr:[150,82]}},gear:[["dbS","far.wr",0,1],["dbS","near.wr",0,1]]},
+ inclinecurl:{to:{far:{wr:[126,86]},near:{wr:[128,87]}},gear:[["db","near.wr",0,0]]},
+ conccurl:{to:{near:{wr:[116,82]}},gear:[["db","near.wr",0,0]]},
+ skull:{to:{far:{wr:[144,76]},near:{wr:[146,77]}},gear:[["db","near.wr",0,0]]},
+ kickback:{to:{near:{wr:[71,82]}},gear:[["db","near.wr",0,0]]},
+ goblet:{to:{neck:[101,48],pelvis:[96,86],head:[106,33],headRot:5,far:{sh:[99,50],el:[102,66],wr:[108,56],hip:[94,86],kn:[98,112]},near:{sh:[101,50],el:[104,68],wr:[110,57],hip:[97,87],kn:[101,112]}},gear:[["dbV","near.wr",2,2]]},
+ bulgarian:{to:{neck:[98,40],pelvis:[98,80],head:[100,25],far:{sh:[96,42],el:[95,61],wr:[95,80],hip:[96,80],kn:[80,106]},near:{sh:[99,43],el:[99,62],wr:[99,81],hip:[99,81],kn:[116,105]}},gear:[["db","near.wr",0,2]]},
+ slrdl:{to:{neck:[126,80],pelvis:[92,84],head:[138,78],headRot:80,far:{sh:[124,82],el:[124,100],wr:[123,118],hip:[91,84],kn:[66,82],an:[42,80],toe:[37,86]},near:{sh:[126,83],el:[126,101],wr:[125,119],hip:[93,85],kn:[98,112]}},gear:[["db","near.wr",0,2]]},
+ stepup:{to:{neck:[112,30],pelvis:[110,68],head:[114,15],far:{sh:[110,32],el:[109,51],wr:[109,70],hip:[109,68],kn:[106,90],an:[100,104],toe:[107,106]},near:{sh:[113,33],el:[113,52],wr:[113,71],hip:[111,69],kn:[115,88]}},gear:[["db","near.wr",0,2]]},
+ glutebridge:{to:{pelvis:[92,110],far:{hip:[91,110],kn:[113,100],an:[136,90],toe:[142,85]},near:{hip:[93,111],kn:[118,108]}}},
+ sideplank:{to:{pelvis:[86,122],far:{hip:[85,122]},near:{hip:[87,123]}}},
+ russiantwist:{to:{far:{el:[70,112],wr:[82,122]},near:{el:[72,113],wr:[84,123]}},gear:[["dbV","near.wr",0,0]]},
+ woodchop:{to:{far:{el:[104,72],wr:[124,96]},near:{el:[122,72],wr:[127,97]}},gear:[["dbV","near.wr",0,0]]},
+ dbbench:{to:EX_ANIM.bench.to,gear:[["db","near.wr",-1,-2]]},
+ dbrow:{to:EX_ANIM.row.to,gear:[["db","near.wr",0,2]]},
+ dbdeadlift:{to:EX_ANIM.deadlift.to,gear:[["db","near.wr",0,1]]},
+ kbgoblet:{to:null,gear:[["kb","near.wr",2,-2]]},
+});
+EX_ANIM.kbgoblet.to=EX_ANIM.goblet.to;
+
+/* ภาพนิ่งของท่าใหม่ (รายการท่าในหน้าออกกำลัง) = จังหวะแรกของภาพเคลื่อนไหว */
+Object.keys(EX_ANIM).forEach(k=>{if(!EXERCISE_DIAGRAMS[k]&&P[k])EXERCISE_DIAGRAMS[k]=exFigureAt(k,0);});
+
 function exPoseAt(key,t){
   const base=P[key],A=EX_ANIM[key];if(!base||!A)return base;
   const k=t*t*(3-2*t); // เร่ง-ผ่อนนุ่มๆ
@@ -985,11 +1110,11 @@ function exFigureAt(key,t){
   if(!A)return exFigure(pose);
   const J=(path)=>path.split(".").reduce((o,k)=>o&&o[k],pose);
   const fore=(A.gear||[]).map(([type,at,dx,dy,r])=>{const p=J(at);if(!p)return"";const x=+(p[0]+dx).toFixed(1),y=+(p[1]+dy).toFixed(1);
-    return type==="plate"?plate(x,y,r):type==="db"?db(x,y):dbS(x,y);}).join("");
+    return (GEAR[type]||GEAR.db)(x,y,r);}).join("");
   return exFigure({...pose,fore:A.gear?[fore]:pose.fore});
 }
 
-function diagramKeyOf(name){const d=getDiagram(name);return d?Object.keys(EXERCISE_DIAGRAMS).find(k=>EXERCISE_DIAGRAMS[k]===d)||null:null;}
+function diagramKeyOf(name){const k=getDiagramKey(name);return k&&P[k]?k:null;}
 
 /* ══════════════════════════════════════
    โหมดพาทำ (เต็มจอ): ทีละท่า ทีละเซ็ต · ภาพท่าเคลื่อนไหว · จับเวลาพัก/ท่าค้าง · เสียงพูด · จอไม่ดับ
@@ -1206,7 +1331,7 @@ function closeGuide(){
 }
 
 const MODEL="claude-sonnet-5";
-const APP_VERSION="2026.10.02"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
+const APP_VERSION="2026.10.02.2"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
 
 /* ── storage ── */
 const LS={
