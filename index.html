@@ -526,7 +526,7 @@ function avgBurn(endDate,days){
     const c=LS.get(K.cardio(d),[]);
     if(c.length){burn+=c.reduce((a,x)=>a+(x.calories||0),0);n++;}
   }
-  return n?Math.round(burn/n):0;
+  return n?Math.round(burn/days):0; // เฉลี่ยต่อวันทั้งช่วง (เดิมหารเฉพาะวันที่มีคาร์ดิโอ ทำให้ค่าสูงเกิน)
 }
 /* แนวโน้มรอบเอว */
 function waistTrend(endDate,windowDays=14){
@@ -679,9 +679,9 @@ function computeAdaptiveTdee(endDate){
   // น้ำหนักลด = ร่างกายใช้มากกว่าที่กิน → TDEE สูงกว่า intake
   const burn=avgBurn(endDate,TDEE_ADJ.WINDOW);
   const kgPerDay=wt.perWeek/7;
-  // TDEE พื้นฐาน (ไม่รวมออกกำลังที่บันทึก) = กิน − ออกกำลัง − พลังงานที่ร่างกายเก็บ/ดึงออก
-  // (เดิมบวก burn เข้าไป ทำให้ค่าเกินจริง 2 เท่าของแคลออกกำลัง)
-  const impliedTdee=Math.round(intake.avg-burn-(kgPerDay*KCAL_PER_KG));
+  // TDEE จริง (รวมทุกกิจกรรมแล้ว) = กิน − พลังงานที่ร่างกายเก็บ/ดึงออก
+  // ไม่บวก/ลบแคลออกกำลังที่บันทึก เพราะสูตร BMR×ระดับกิจกรรม ก็รวมการออกกำลังไว้แล้ว — เทียบกันแบบเดียวกัน
+  const impliedTdee=Math.round(intake.avg-(kgPerDay*KCAL_PER_KG));
 
   // เบรกชั้น 2: เพดาน ±20% จากสูตร
   const lo=Math.round(formulaTdee*(1-TDEE_ADJ.MAX_DEVIATE));
@@ -702,6 +702,20 @@ function computeAdaptiveTdee(endDate){
     lo,hi,enabled:cur.enabled,pendingChange:Math.abs(step)>=5};
 }
 /* บันทึกค่าปรับ (เรียกเมื่อผู้ใช้ยืนยัน หรือ auto วันจันทร์) */
+/* ใช้คำแนะนำของ Engine (เพิ่ม/ลดแคล) — เก็บในชั้นปรับ TDEE ชั้นเดียวกัน
+   Adaptive TDEE จะเรียนรู้ต่อจากค่าใหม่นี้ (ขยับเข้าหาค่าจริงแบบค่าสัมบูรณ์ จึงไม่ปรับซ้อน) */
+function applyDecision(endDate,amount){
+  const a=LS.get(K.tdeeAdj,{delta:0,history:[]});
+  const wasOn=a.enabled!==false;
+  const p=LS.get(K.profile,null);
+  const formula=computeTargets(p,latestBody(),{raw:true}).tdee;
+  const lim=Math.round(formula*TDEE_ADJ.MAX_DEVIATE);
+  a.delta=Math.max(-lim,Math.min(lim,(wasOn?(a.delta||0):0)+amount));
+  a.enabled=true;a.lastRun=endDate;
+  a.history=[...(a.history||[]),{date:endDate,delta:a.delta,tdee:formula+a.delta,engine:amount}].slice(-12);
+  LS.set(K.tdeeAdj,a);
+  return a;
+}
 function applyTdeeAdj(endDate){
   const r=computeAdaptiveTdee(endDate);
   if(!r||r.status!=="ok")return null;
@@ -718,9 +732,9 @@ function energyAudit(endDate,days=7){
   const intake=avgIntake(endDate,days);
   if(!intake||intake.days<Math.ceil(days*0.6))return{status:"insufficient",days:intake?.days||0,need:Math.ceil(days*0.6)};
   const burn=avgBurn(endDate,days);
-  const tdee=t.tdee+burn;
+  const tdee=t.tdee; // รวมการออกกำลังตามปกติไว้แล้ว — ไม่บวก burn ซ้ำ
   const dailyDeficit=Math.round(tdee-intake.avg);
-  const cumDeficit=dailyDeficit*intake.days;
+  const cumDeficit=dailyDeficit*days; // น้ำหนักเทียบช่วง 7 วันเต็ม จึงคูณจำนวนวันเต็ม
   const expectedKg=+(cumDeficit/KCAL_PER_KG).toFixed(2);
   const wt=weightTrend(endDate,days);
   if(!wt)return{status:"no-weight",dailyDeficit,expectedKg,intake,tdee};
@@ -1331,7 +1345,7 @@ function closeGuide(){
 }
 
 const MODEL="claude-sonnet-5";
-const APP_VERSION="2026.10.19.1"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
+const APP_VERSION="2026.10.19.2"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
 
 /* ── storage ── */
 const LS={
@@ -1429,9 +1443,11 @@ function computeTargets(p,body,opts){
   }
   const bf=body?.bodyFat??null;
   const lean=bf?w*(1-bf/100):w*0.78;
-  const dir=p.targetWeight?(p.targetWeight<w?"lose":p.targetWeight>w?"gain":"maintain"):"lose";
-  let cal=dir==="lose"?tdee-500:dir==="gain"?tdee+250:tdee;
-  cal=Math.max(1200,Math.round(cal));
+  const dirW=p.targetWeight?(p.targetWeight<w?"lose":p.targetWeight>w?"gain":"maintain"):null;
+  // เป้าหมายที่เลือกไว้มาก่อน (ลดไขมัน+เพิ่มกล้าม = deficit น้อยกว่า), น้ำหนักเป้าใช้เมื่อไม่ได้เลือก
+  const dir=p.goal==="gain"?"gain":p.goal==="recomp"?(dirW==="gain"?"maintain":"recomp"):(dirW||"lose");
+  let cal=dir==="lose"?tdee-500:dir==="recomp"?tdee-300:dir==="gain"?tdee+250:tdee;
+  cal=Math.max(p.gender==="female"?1200:1500,Math.round(cal));
   const protein=Math.round(lean*2.4);
   const fat=Math.round(cal*0.25/9);
   const carb=Math.max(0,Math.round((cal-protein*4-fat*9)/4));
@@ -1486,7 +1502,13 @@ function clearOverride(){LS.del(K.override);}
 
 function dayTarget(date,baseTargets){
   const o=LS.get(K.dcal(date),null);
-  if(o&&typeof o.cal==="number")return{cal:o.cal,note:o.note||null,banked:true};
+  if(o&&typeof o.cal==="number"){
+    // เป้ารายวันจากโค้ชก็ต้องไม่ต่ำกว่าขั้นต่ำปลอดภัย
+    const p=LS.get(K.profile,null);
+    const bmr=latestBodyMerged()?.bmr||baseTargets.bmr;
+    const floor=Math.max(p?.gender==="female"?1200:1500,Math.round(bmr*0.8));
+    return{cal:Math.max(floor,o.cal),note:o.note||null,banked:true,capped:o.cal<floor};
+  }
   // override ที่ผู้ใช้ยืนยันเอง (มีวันหมดอายุ)
   const ov=getOverride(date);
   if(ov){
@@ -1503,6 +1525,12 @@ function dayTarget(date,baseTargets){
 
 /* แคลออกกำลัง: เป้าแคล (BMR×ระดับกิจกรรม) รวมการออกกำลังตามปกติไว้แล้ว → ไม่กินชดเชยทั้งหมด
    ให้ "โบนัส" เฉพาะวันที่เผาเกินปกติ: ครึ่งหนึ่งของส่วนที่เกิน (เผื่อนาฬิกา/สูตรประเมินเกินจริง) */
+/* ปรับมาโครให้ตามเป้าแคลของวัน (โปรตีนคงเดิม ไขมัน 25% ที่เหลือเป็นคาร์บ) */
+function withCal(base,cal){
+  if(cal===base.cal)return{...base};
+  const fat=Math.round(cal*0.25/9);
+  return{...base,cal,fat,carb:Math.max(0,Math.round((cal-base.protein*4-fat*9)/4))};
+}
 function exerciseBonus(burn,p){
   if(!burn)return 0;
   const act=p?.activity||1.375;
@@ -2020,7 +2048,7 @@ function engineCard(){
         <div class="lbl" style="margin-bottom:3px;color:var(--${c})">${isMonday&&isRoutine?"📅 สรุปประจำสัปดาห์ (ทุกวันจันทร์)":"ENGINE · วิเคราะห์ 14 วัน"}</div>
         <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:2px">${atitle}</div>
         <div style="font-size:12px;color:var(--text2);line-height:1.5">${esc(dec.reason)}</div>
-        ${dec.newTarget?`<div style="margin-top:8px;display:inline-block;background:var(--${c}-bg);color:var(--${c});font-size:12px;font-weight:800;padding:5px 12px;border-radius:20px">เป้าใหม่ ${dec.newTarget} kcal/วัน</div>`:""}
+        ${dec.newTarget&&!dec.override?`<button id="dec-apply" data-amt="${dec.action==="decrease"?-dec.amount:dec.amount}" style="margin-top:8px;display:inline-block;border:none;cursor:pointer;font-family:inherit;background:var(--${c}-bg);color:var(--${c});font-size:12px;font-weight:800;padding:7px 14px;border-radius:20px">✅ ใช้เป้าใหม่ ${dec.newTarget} kcal/วัน</button><div style="font-size:10.5px;color:var(--text3);margin-top:5px">ยังไม่เปลี่ยนจนกว่าจะกด</div>`:dec.newTarget?`<div style="margin-top:8px;display:inline-block;background:var(--${c}-bg);color:var(--${c});font-size:12px;font-weight:800;padding:5px 12px;border-radius:20px">แนะนำ ${dec.newTarget} kcal/วัน — ยกเลิกเป้าเฉพาะกิจด้านบนถ้าต้องการ</div>`:""}
       </div>
     </div>
     ${conf!=null?`<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);margin-top:8px">
@@ -2052,7 +2080,7 @@ function insightCard(scope){
 function viewHome(){
   const p=LS.get(K.profile,null),base=computeTargets(p,latestBody()),lb=latestBody();
   const dt=dayTarget(state.date,base);
-  const t={...base,cal:dt.cal};
+  const t=withCal(base,dt.cal);
   const food=LS.get(K.food(state.date),[]);
   const eaten=food.reduce((a,f)=>a+f.cal,0);
   const remain=t.cal-eaten;
@@ -2434,7 +2462,7 @@ function bodyStatus(bf,bmi,gender){
 function viewFood(){
   const p=LS.get(K.profile,null),base=computeTargets(p,latestBody());
   const dt=dayTarget(state.date,base);
-  const t={...base,cal:dt.cal};
+  const t=withCal(base,dt.cal);
   const food=LS.get(K.food(state.date),[]);
   const tot=food.reduce((a,f)=>({cal:a.cal+f.cal,protein:a.protein+f.protein,carb:a.carb+f.carb,fat:a.fat+f.fat}),{cal:0,protein:0,carb:0,fat:0});
   const remain=t.cal-tot.cal,pct=Math.min(100,tot.cal/t.cal*100);
@@ -2677,6 +2705,8 @@ function bindTab(){
       const r=applyTdeeAdj(state.date);
       if(r){render();toast(`📊 ปรับ TDEE เป็น ${r.newTdee} kcal แล้ว`);}
     };
+    const dA=document.getElementById("dec-apply");
+    if(dA)dA.onclick=()=>{const amt=+dA.dataset.amt;applyDecision(state.date,amt);render();toast(`🎯 ปรับเป้า ${amt>0?"+":""}${amt} kcal แล้ว`);};
     const tE=document.getElementById("tdee-enable");
     if(tE)tE.onclick=()=>{setTdeeAdjEnabled(true);render();toast("📊 เปิด Adaptive TDEE แล้ว");};
     const tD=document.getElementById("tdee-disable");
@@ -2797,7 +2827,7 @@ ${mp.fatTight?"⚠️ บังคับ: ต้องเลือกแหล�
 
 กินไปแล้ว: ${food.map(f=>`${f.name}(${f.cal}kcal P${f.protein}g C${f.carb}g F${f.fat}g)`).join(', ')}
 ยอดรวม: ${eaten.c}kcal P${eaten.p}g C${eaten.cb}g F${eaten.ft}g
-เผาผลาญคาร์ดิโอ: ${burn}kcal
+ออกกำลังวันนี้: ${burn}kcal (รวมอยู่ในเป้าแล้ว ห้ามบวกเพิ่มเข้าแคลที่เหลือ${exerciseBonus(burn,LS.get(K.profile,null))?` ยกเว้นโบนัส ${exerciseBonus(burn,LS.get(K.profile,null))} kcal จากการออกหนัก`:""})
 เป้าหมายวัน: ${t.cal}kcal P${t.protein}g C${t.carb}g F${t.fat}g
 โปรตีนขาด: ${mp.proteinGap}g | คาร์บขาด: ${mp.carbGap}g | ไขมันเหลือ: ${mp.fatBudget}g | แคลเหลือ: ${mp.calBudget}kcal
 มื้อที่กินแล้ว: ${mealsDone.join(',')||'ยังไม่มี'}
@@ -5588,7 +5618,7 @@ ${buildContext(lookbackDays)}`;
       try{
         const dj=extractJSON(dm[1]);
         if(dj&&Array.isArray(dj.targets)&&dj.targets.length>=1&&dj.targets.every(x=>typeof x==="number")){
-          if(dj.startDate==="today"||!dj.startDate)dj.startDate=todayStr();
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(dj.startDate||""))dj.startDate=/tomorrow|พรุ่งนี้/i.test(dj.startDate||"")?addDays(todayStr(),1):todayStr();
           dcalObj=dj;
         }else{cleanText+=" ⚠️ ปรับแคลอรี่รายวันไม่ได้ (รูปแบบผิด) ลองใหม่ครับ";}
       }catch(err){cleanText+=" ⚠️ ปรับแคลอรี่รายวันไม่ได้ (JSON error) ลองใหม่ครับ";}
