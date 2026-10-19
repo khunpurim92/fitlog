@@ -1331,7 +1331,7 @@ function closeGuide(){
 }
 
 const MODEL="claude-sonnet-5";
-const APP_VERSION="2026.10.02.2"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
+const APP_VERSION="2026.10.19.1"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
 
 /* ── storage ── */
 const LS={
@@ -1501,6 +1501,16 @@ function dayTarget(date,baseTargets){
   return{cal:baseTargets.cal,note:null,banked:false};
 }
 
+/* แคลออกกำลัง: เป้าแคล (BMR×ระดับกิจกรรม) รวมการออกกำลังตามปกติไว้แล้ว → ไม่กินชดเชยทั้งหมด
+   ให้ "โบนัส" เฉพาะวันที่เผาเกินปกติ: ครึ่งหนึ่งของส่วนที่เกิน (เผื่อนาฬิกา/สูตรประเมินเกินจริง) */
+function exerciseBonus(burn,p){
+  if(!burn)return 0;
+  const act=p?.activity||1.375;
+  const included=act<=1.2?0:400; // ส่วนที่เผื่อไว้ในเป้าแล้วต่อวันออกกำลัง
+  const extra=burn-included;
+  if(extra<=0)return 0;
+  return Math.round(extra*0.5/50)*50;
+}
 function impliedWeight(body,tbf){
   if(!body?.bodyFat||!tbf)return null;
   const lean=body.weight*(1-body.bodyFat/100);
@@ -1778,17 +1788,21 @@ function getInsights(scope){
   const bmr=lb?.bmr||base.bmr;
 
   if(scope==="home"||scope==="food"){
-    // Deficit สูงเกิน (กินสุทธิต่ำกว่า BMR มาก)
-    if(eaten>0&&net<bmr-100&&net>0){
-      ins.push({t:"warn",ic:"🔥",title:"Deficit สูงเกินไป",msg:`กินสุทธิ ${net} kcal ต่ำกว่า BMR (${bmr}) — เสี่ยงสูญกล้ามเนื้อ ควรกินเพิ่ม`});
+    // ประเมินจาก "กินจริง" เทียบเป้า (เป้ารวมการออกกำลังปกติไว้แล้ว — ไม่หักแคลออกกำลังซ้ำ)
+    const bonus=exerciseBonus(burn,p);
+    const endOfDay=!isToday(d)||new Date().getHours()>=20;
+    const floor=Math.max(p.gender==="female"?1200:1500,Math.round(bmr*0.8));
+    if(eaten>dt.cal+bonus+50){
+      ins.push({t:"amber",ic:"⚠️",title:"เกินเป้าแคลอรี่",msg:`วันนี้กิน ${eaten}/${dt.cal+bonus} kcal — ลองลดมื้อถัดไป หรือเพิ่มคาร์ดิโอ`});
     }
-    // เกินเป้า
-    else if(eaten>dt.cal+50){
-      ins.push({t:"amber",ic:"⚠️",title:"เกินเป้าแคลอรี่",msg:`วันนี้กิน ${eaten}/${dt.cal} kcal — ลองลดมื้อถัดไป หรือเพิ่มคาร์ดิโอ`});
+    else if(endOfDay&&eaten>0&&eaten<floor){
+      ins.push({t:"warn",ic:"🔥",title:"กินน้อยเกินไป",msg:`วันนี้กิน ${eaten} kcal ต่ำกว่าขั้นต่ำปลอดภัย (${floor}) — เสี่ยงเสียกล้ามเนื้อ พรุ่งนี้กินให้ใกล้เป้า ${dt.cal}`});
     }
-    // อยู่ใน deficit ที่ดี
-    else if(eaten>0&&net>=bmr-100&&net<=dt.cal){
-      ins.push({t:"green",ic:"✅",title:"Deficit กำลังดี",msg:`สุทธิ ${net} kcal อยู่ในโซนลดไขมันที่ปลอดภัย รักษาไว้!`});
+    else if(endOfDay&&eaten>=dt.cal-250){
+      ins.push({t:"green",ic:"✅",title:"ตรงเป้า",msg:`กิน ${eaten}/${dt.cal}${bonus?` (+${bonus} จากออกกำลังหนัก)`:""} kcal อยู่ในโซนลดไขมันที่ปลอดภัย รักษาไว้!`});
+    }
+    if(bonus>0&&eaten<=dt.cal+bonus){
+      ins.push({t:"blue",ic:"🏃",title:"ออกหนักกว่าปกติ",msg:`เผาผลาญ ${burn} kcal — เป้า ${dt.cal} รวมการออกกำลังปกติไว้แล้ว วันนี้กินได้ถึง ${dt.cal+bonus} kcal (+${bonus} ไม่บังคับ)`});
     }
     // โปรตีนขาด (ถ้ากินไปแล้วเกินครึ่งเป้าแคล แต่โปรตีนยังต่ำ)
     if(eaten>dt.cal*0.4&&protein<base.protein*0.5){
@@ -2171,8 +2185,7 @@ function viewHome(){
   // ── สรุปวันนี้ (hero card) ──
   const cardioToday=LS.get(K.cardio(state.date),[]);
   const burn=cardioToday.reduce((a,c)=>a+(c.calories||0),0);
-  const net=eaten-burn;
-  const remainReal=t.cal-net;
+  const bonusEx=exerciseBonus(burn,p);
   const pEat=food.reduce((a,f)=>a+(f.protein||0),0);
   const cEat=food.reduce((a,f)=>a+(f.carb||0),0);
   const fEat=food.reduce((a,f)=>a+(f.fat||0),0);
@@ -2211,7 +2224,7 @@ function viewHome(){
       </div>
     </div>
     ${burn?`<div style="display:flex;justify-content:center;gap:6px;font-size:11px;color:var(--text3);margin-bottom:12px">
-      <span>🔥 เผาผลาญ <b style="color:var(--amber)">${burn}</b> kcal</span><span>·</span><span>สุทธิ <b style="color:var(--text2)">${net}</b> kcal</span>
+      <span>🔥 เผาผลาญ <b style="color:var(--amber)">${burn}</b> kcal</span><span>·</span><span>${bonusEx?`กินเพิ่มได้ <b style="color:var(--green)">+${bonusEx}</b> kcal`:`รวมอยู่ในเป้าแล้ว`}</span>
     </div>`:""}
     <button class="btn btn-primary btn-block" id="go-food">+ บันทึกอาหาร</button>
   </div>`;
@@ -5450,7 +5463,7 @@ HR Zone (Karvonen): ${hrLine}
 แคลอรี่เป้าหมาย: ${t.cal} kcal (P${t.protein} C${t.carb} F${t.fat}) TDEE ${t.tdee}
 เป้าวันนี้: ${dt.cal} kcal${dt.banked?" [ปรับโดยแผน]":""}
 เป้าแคลอรี่รายวันที่ตั้งไว้: ${dcalLine}
-วันนี้: กินไป ${tt.c} kcal เผาผลาญ ${burn} kcal สุทธิ ${tt.c-burn} kcal | P${tt.p} C${tt.cb} F${tt.ft}g
+วันนี้: กินไป ${tt.c} kcal | ออกกำลังเผาผลาญ ${burn} kcal (เป้าแคลคิดจาก BMR×ระดับกิจกรรม รวมการออกกำลังปกติไว้แล้ว — ห้ามแนะนำให้กินชดเชยแคลออกกำลังทั้งหมด${exerciseBonus(burn,p)?` อนุญาตกินเพิ่มได้ไม่เกิน ${exerciseBonus(burn,p)} kcal เพราะวันนี้ออกหนักกว่าปกติ`:""}; ประเมิน deficit จากกินจริงเทียบเป้า ไม่ใช่ กิน−เผาผลาญ) | P${tt.p} C${tt.cb} F${tt.ft}g
 มื้อวันนี้: ${todayList}
 คาร์ดิโอวันนี้: ${cardioList}
 แผนวันนี้: ${planLine}${planWeekLine}
