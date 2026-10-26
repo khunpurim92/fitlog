@@ -16,6 +16,7 @@
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
 :root{
+  --on-accent:#15131C;
   --bg:#0E0E16;
   --bg2:#16161F;
   --bg3:#1E1E2A;
@@ -64,6 +65,7 @@
 /* ══ ธีมสว่าง ══ พื้นสว่าง ตัวอักษรเข้ม · สีเชิงความหมายเข้มขึ้นให้อ่านออกบนพื้นขาว
    ใช้ :root[data-mode] เพื่อให้ชนะสีพื้นของธีมประจำวัน แต่ยังเก็บสีหลักประจำวันไว้ (เวอร์ชันเข้ม) */
 :root[data-mode="light"]{
+  --on-accent:#FFFFFF;
   --bg:#F4F4F8;--bg2:#ECECF3;--bg3:#E7E7F0;--card:#FFFFFF;--card2:#F2F2F8;--border:#DADAE5;
   --text:#16161F;--text2:#474759;--text3:#6E6E84;
   --accent:#6A5CF0;--accent2:#4B3DCC;--accent-bg:rgba(106,92,240,.10);--accent-glow:rgba(106,92,240,.22);
@@ -251,7 +253,7 @@ input::placeholder{color:var(--text3);}
   cursor:pointer;font-family:inherit;transition:all .2s;
 }
 .seg button.on{
-  background:var(--accent);color:#fff;font-weight:800;
+  background:var(--accent);color:var(--on-accent);font-weight:800;
   box-shadow:0 2px 8px var(--accent-glow);
 }
 
@@ -261,12 +263,12 @@ input::placeholder{color:var(--text3);}
   font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;
   transition:all .15s;
 }
-.btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 14px var(--accent-glow);}
+.btn-primary{background:var(--accent);color:var(--on-accent);box-shadow:0 4px 14px var(--accent-glow);}
 .btn-primary:active{transform:scale(.97);}
 .btn-ghost{background:var(--bg3);color:var(--text2);border:1px solid var(--border);}
 .btn-ghost:active{background:var(--card2);}
 .btn-save{
-  width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;
+  width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--on-accent);
   border:none;border-radius:var(--r-md);padding:15px;
   font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;margin-top:6px;
   box-shadow:0 4px 20px var(--accent-glow);transition:all .2s;
@@ -1346,7 +1348,7 @@ function closeGuide(){
 }
 
 const MODEL="claude-sonnet-5";
-const APP_VERSION="2026.10.26.1"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
+const APP_VERSION="2026.10.26.2"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
 
 /* ── storage ── */
 const LS={
@@ -2115,7 +2117,8 @@ function viewHome(){
   const leftB=[
     sideBlk("น้ำหนัก",weight??"–","กก.",trendTxt(wtr),trendCol(wtr),"left"),
     (mb?.waist!=null)?sideBlk("รอบเอว",mb.waist,"ซม.",wsT&&wsT.dir!=="flat"?`${wsT.delta<0?"ลง":"ขึ้น"} ${Math.abs(wsT.delta)} ซม. ใน 14 วัน`:"",wsT?trendCol({dir:wsT.dir==="down"?"down":wsT.dir==="up"?"up":"flat"}):"var(--text3)","left")
-      :sideBlk("กล้ามเนื้อ",mb?.muscleMass??"–","กก.","","var(--text3)","left")
+      :(mb?.muscleMass!=null?sideBlk("กล้ามเนื้อ",mb.muscleMass,"กก.","","var(--text3)","left")
+      :sideBlk("เป้าน้ำหนัก",p.targetWeight||"–","กก.",p.targetWeight&&weight?`อีก ${Math.abs(weight-p.targetWeight).toFixed(1)} กก.`:"","var(--text2)","left"))
   ];
   const rightB=[
     sideBlk("ไขมัน",bf!=null?bf:"–","%",p.targetBf?`เป้า ${p.targetBf}%`:"","var(--text2)","right"),
@@ -2315,7 +2318,7 @@ function viewHome(){
 /* SVG silhouette สมจริงขึ้น — หัวทรงไข่ คอชัด ท่ายืนธรรมชาติ สะดือ เท้าเป็นรูปเท้า (ไม่มีนิ้ว)
    ระบบสี/สถานะ 5 ระดับเหมือนเดิมทุกอย่าง แค่เปลี่ยนรูปร่างพื้นฐาน */
 // โครงร่างมนุษย์ด้านหน้า แบบเส้นต่อเนื่อง (ไม่ใช่ประกอบจากก้อนรูปทรง)
-function bodyAvatarSVG(weight,bf,bmi,gender,fill){
+function bodyAvatarSVG(weight,bf,bmi,gender,fill,w){
   let fatLevel,tier;
   if(bf!=null){
     fatLevel=gender==="female"?Math.max(0,Math.min(1,(bf-18)/22)):Math.max(0,Math.min(1,(bf-8)/22));
@@ -2402,7 +2405,7 @@ function bodyAvatarSVG(weight,bf,bmi,gender,fill){
       <filter id="glow" x="-30%" y="-10%" width="160%" height="120%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     </defs>`;
   if(fill==null){
-    return`<svg viewBox="0 0 200 400" width="130" height="260" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto">
+    return`<svg viewBox="0 0 200 400" width="${w||130}" height="${(w||130)*2}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto">
     ${defs}
     <ellipse cx="${cx}" cy="392" rx="${34+f*8}" ry="5" fill="rgba(0,0,0,.35)"/>
     <g fill="url(#bodyGrad)" filter="url(#glow)">${shapes}</g>
@@ -2467,25 +2470,22 @@ function viewFood(){
   const food=LS.get(K.food(state.date),[]);
   const tot=food.reduce((a,f)=>({cal:a.cal+f.cal,protein:a.protein+f.protein,carb:a.carb+f.carb,fat:a.fat+f.fat}),{cal:0,protein:0,carb:0,fat:0});
   const remain=t.cal-tot.cal,pct=Math.min(100,tot.cal/t.cal*100);
-  const sc=tot.cal>t.cal?"var(--red)":pct>85?"var(--amber)":"var(--green)";
-  let h=`<div class="card card-glow">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px">
+  const over=remain<0;
+  const n0=v=>Number(v).toLocaleString("en-US");
+  const mline=(l,v,tg)=>`<div><span style="color:var(--text2)">${l}</span> <b style="color:var(--text)">${v}</b><span style="color:var(--text2)">/${tg}</span></div>`;
+  // ── สรุปแคล (ตัวเลขใหญ่แบบหน้าแรก) ──
+  let h=`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
       <div>
-        <div class="lbl" style="margin-bottom:6px">แคลอรี่วันนี้${dt.banked?` <span style="color:var(--accent2)">🏦</span>`:""}</div>
-        <div class="num" style="font-size:42px;font-weight:900;color:${sc};line-height:1">${remain>=0?remain:"+"+Math.abs(remain)}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${remain>=0?"kcal เหลือ":"kcal เกินเป้า"}</div>
+        <div style="font-size:13px;color:var(--text2)">${over?"เกินเป้าแล้ว":(isToday(state.date)?"วันนี้กินได้อีก":"วันนั้นเหลือ")}${dt.banked?` · <span style="color:var(--accent2)">ปรับโดยแผน</span>`:""}</div>
+        <div style="display:flex;align-items:baseline;gap:6px"><span class="num" style="font-size:46px;font-weight:900;line-height:1.1;color:${over?"var(--red)":"var(--accent)"}">${n0(Math.abs(remain))}</span><span style="font-size:14px;color:var(--text2)">kcal</span></div>
       </div>
-      <div style="text-align:right">
-        <div class="num" style="font-size:22px;font-weight:800;color:var(--text2)">${tot.cal}</div>
-        <div style="font-size:10px;color:var(--text3)">จาก ${t.cal} kcal</div>
-      </div>
+      <div style="text-align:right;font-size:12px;color:var(--text2);line-height:1.5">กินแล้ว <b style="color:var(--text)">${n0(tot.cal)}</b><br>จากเป้า ${n0(t.cal)}</div>
     </div>
-    <div class="bartrack"><div class="barfill" style="width:${pct}%;background:${sc}"></div></div>
-    ${dt.banked?`<div class="small" style="margin-top:8px;color:var(--accent2)">🏦 วันนี้ปรับเป็น ${dt.cal} kcal โดยแผน Calorie Banking${dt.note?" — "+esc(dt.note):""}</div>`:""}
-    <div class="row" style="margin-top:14px;gap:10px">
-      ${macro("โปรตีน",tot.protein,t.protein,"var(--accent)")}
-      ${macro("คาร์บ",tot.carb,t.carb,"var(--teal)")}
-      ${macro("ไขมัน",tot.fat,t.fat,"var(--amber)")}
+    <div style="height:6px;background:var(--bg3);border-radius:3px;margin-top:10px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${over?"var(--red)":"var(--accent)"};border-radius:3px;transition:width .5s"></div></div>
+    ${dt.banked&&dt.note?`<div class="small" style="margin-top:8px;color:var(--accent2)">${esc(dt.note)}</div>`:""}
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px;font-size:12px">
+      ${mline("โปรตีน",tot.protein,t.protein)}${mline("คาร์บ",tot.carb,t.carb)}${mline("ไขมัน",tot.fat,t.fat)}
     </div>
     ${(()=>{
       const mi=food.reduce((a,f)=>({fb:a.fb+(f.fiber||0),sg:a.sg+(f.sugar||0),sd:a.sd+(f.sodium||0)}),{fb:0,sg:0,sd:0});
@@ -2497,103 +2497,7 @@ function viewFood(){
         <div style="flex:1;text-align:center"><div style="font-size:13px;font-weight:800;color:${sdWarn?"var(--red)":"var(--blue)"}">${mi.sd>=1000?(mi.sd/1000).toFixed(1)+"k":mi.sd}${sdWarn?" ⚠️":""}</div><div style="font-size:9.5px;color:var(--text3)">🧂 โซเดียม mg</div></div>
       </div>`;
     })()}</div>`;
-  // ── Water tracker ──
-  const waterGoal=8;
-  const water=LS.get(K.water(state.date),0);
-  const wpct=Math.min(100,water/waterGoal*100);
-  h+=`<div class="card" style="overflow:hidden;position:relative">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="icf icf-blue">💧</div>
-        <div>
-          <div style="font-size:13px;font-weight:800;color:var(--text)">น้ำวันนี้</div>
-          <div style="font-size:10px;color:var(--text3)">${water*250} / ${waterGoal*250} ml</div>
-        </div>
-      </div>
-      <div style="font-size:20px;font-weight:900;color:var(--blue)">${water}<span style="font-size:12px;color:var(--text3);font-weight:600">/${waterGoal}</span></div>
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:12px">
-      ${Array.from({length:waterGoal},(_,i)=>`<div style="flex:1;height:32px;border-radius:8px;background:${i<water?"var(--blue)":"var(--bg3)"};${i<water?"box-shadow:0 2px 8px rgba(77,155,255,0.35)":""};transition:all .2s;display:flex;align-items:center;justify-content:center;font-size:13px">${i<water?"💧":""}</div>`).join("")}
-    </div>
-    <div class="row" style="gap:8px">
-      <button class="btn btn-ghost" id="water-minus" style="flex:0 0 48px;font-size:18px">−</button>
-      <button class="btn" id="water-plus" style="flex:1;background:var(--blue-bg);color:var(--blue);font-weight:700">💧 +1 แก้ว · 250 ml</button>
-    </div>
-  </div>`;
-  // ── Intermittent Fasting ──
-  const FAST_HOURS={"16:8":16,"18:6":18,"20:4":20,"OMAD":23};
-  const fast=LS.get(K.fast,{mode:"16:8",startedAt:null,streak:0,done:0,total:0,lastDone:null});
-  const fMode=fast.mode||"16:8",fTarget=FAST_HOURS[fMode]*3600000;
-  let fastBody="";
-  if(fast.startedAt){
-    const elapsed=Date.now()-fast.startedAt;
-    const fpct=Math.min(100,elapsed/fTarget*100);
-    const reached=elapsed>=fTarget;
-    const hh=Math.floor(elapsed/3600000),mm=Math.floor(elapsed%3600000/60000);
-    const remainMs=Math.max(0,fTarget-elapsed);
-    const rh=Math.floor(remainMs/3600000),rm=Math.floor(remainMs%3600000/60000);
-    fastBody=`
-      <div style="text-align:center;margin-bottom:12px">
-        <div id="fast-timer" style="font-size:36px;font-weight:900;color:${reached?"var(--green)":"var(--amber)"};font-variant-numeric:tabular-nums">${hh}:${String(mm).padStart(2,"0")}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${reached?`✅ ครบ ${FAST_HOURS[fMode]} ชม.แล้ว! จบได้เลย`:`อดมาแล้ว · เหลืออีก ${rh} ชม. ${rm} นาที`}</div>
-      </div>
-      <div class="bartrack" style="margin:0 0 12px;height:8px"><div class="barfill" style="width:${fpct}%;background:${reached?"var(--green)":"linear-gradient(90deg,var(--amber),var(--green))"}"></div></div>
-      <button class="btn-save" id="fast-end" style="background:${reached?"linear-gradient(135deg,var(--green),var(--teal))":"var(--bg3)"};color:${reached?"#fff":"var(--text2)"}">${reached?"✅ จบ Fasting สำเร็จ":"⏹ จบก่อนเวลา"}</button>`;
-  }else{
-    fastBody=`
-      <div class="seg" id="fast-mode" style="margin-bottom:12px">
-        ${Object.keys(FAST_HOURS).map(mo=>`<button data-fm="${mo}" class="${mo===fMode?"on":""}">${mo}</button>`).join("")}
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <div style="flex:1;background:var(--bg3);border-radius:var(--r-md);padding:9px;text-align:center"><div style="font-size:15px;font-weight:800;color:var(--text)">${FAST_HOURS[fMode]}h</div><div style="font-size:9.5px;color:var(--text3)">อดอาหาร</div></div>
-        <div style="flex:1;background:var(--bg3);border-radius:var(--r-md);padding:9px;text-align:center"><div style="font-size:15px;font-weight:800;color:var(--text)">${24-FAST_HOURS[fMode]}h</div><div style="font-size:9.5px;color:var(--text3)">ทานได้</div></div>
-      </div>
-      <button class="btn-save" id="fast-start" style="background:linear-gradient(135deg,var(--green),var(--teal))">▶ เริ่ม Fasting (${fMode})</button>`;
-  }
-  h+=`<div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="icf icf-green">⏳</div>
-        <div>
-          <div style="font-size:13px;font-weight:800;color:var(--text)">Intermittent Fasting</div>
-          <div style="font-size:10px;color:var(--text3)">งดมื้ออาหาร · เพิ่ม deficit</div>
-        </div>
-      </div>
-      <span style="font-size:11px;font-weight:800;color:var(--green);background:var(--green-bg);padding:4px 11px;border-radius:11px">${fMode}</span>
-    </div>
-    ${fastBody}
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <div style="flex:1;background:var(--teal-bg);border-radius:var(--r-md);padding:9px;text-align:center"><div style="font-size:16px;font-weight:900;color:var(--teal)">${fast.streak||0}</div><div style="font-size:9.5px;color:var(--text3)">STREAK</div></div>
-      <div style="flex:1;background:var(--amber-bg);border-radius:var(--r-md);padding:9px;text-align:center"><div style="font-size:16px;font-weight:900;color:var(--amber)">${fast.done||0}</div><div style="font-size:9.5px;color:var(--text3)">DONE</div></div>
-      <div style="flex:1;background:var(--accent-bg);border-radius:var(--r-md);padding:9px;text-align:center"><div style="font-size:16px;font-weight:900;color:var(--accent2)">${fast.total||0}</div><div style="font-size:9.5px;color:var(--text3)">TOTAL</div></div>
-    </div>
-  </div>`;
-  // ── Journal — บันทึกปัจจัยเชิงคุณภาพ (ช่วยอธิบายน้ำหนักแกว่ง) ──
-  {
-    const p2=LS.get(K.profile,null);
-    const jr=getJournal(state.date);
-    const visibleTags=JOURNAL_TAGS.filter(t=>!t.femaleOnly||p2?.gender==="female");
-    h+=`<div class="card">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
-        <div class="icf icf-pink" style="width:34px;height:34px">📓</div>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:800;color:var(--text)">Journal วันนี้</div>
-          <div style="font-size:10px;color:var(--text3)">แตะปัจจัยที่ตรงกับวันนี้ — ช่วยอธิบายเวลาน้ำหนักแกว่งผิดปกติ</div>
-        </div>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">
-        ${visibleTags.map(t=>{
-          const on=jr.tags.includes(t.id);
-          return`<button data-jtag="${t.id}" style="background:${on?"var(--pink-bg)":"var(--bg3)"};border:1.5px solid ${on?"var(--pink)":"var(--border)"};border-radius:20px;padding:7px 13px;font-size:12px;font-weight:${on?"800":"600"};color:${on?"var(--pink)":"var(--text2)"};cursor:pointer;font-family:inherit">${t.icon} ${t.label}</button>`;
-        }).join("")}
-      </div>
-      <input id="journal-note" placeholder="โน้ตเพิ่มเติม (ไม่บังคับ)" value="${esc(jr.note)}" style="font-size:12.5px">
-    </div>`;
-  }
-  h+=insightCard("food");
-  // ปุ่มวิเคราะห์อาหาร
-  if(food.length){h+=`<button class="btn-save" id="analyze-food" style="margin-bottom:12px;background:linear-gradient(135deg,var(--accent),var(--teal))">🤖 วิเคราะห์และแนะนำมื้อที่เหลือ</button>`;}
-  h+=`<button class="btn btn-ghost btn-block" id="plan-tomorrow" style="margin-bottom:12px">🗓️ ให้โค้ชวางแผนมื้อพรุ่งนี้</button>`;
+  // ── มื้ออาหาร (สิ่งที่มาทำบ่อยที่สุด อยู่ถัดจากสรุปทันที) ──
   MEALS.forEach(m=>{
     const items=food.filter(f=>f.meal===m.id);
     const sub=items.reduce((a,f)=>a+f.cal,0);
@@ -2634,9 +2538,70 @@ function viewFood(){
       </div>`).join("")}
     </div>`;
   });
+  h+=insightCard("food");
+  // ปุ่มวิเคราะห์อาหาร
+  if(food.length){h+=`<button class="btn-save" id="analyze-food" style="margin-bottom:12px;background:linear-gradient(135deg,var(--accent),var(--teal))">🤖 วิเคราะห์และแนะนำมื้อที่เหลือ</button>`;}
+  h+=`<button class="btn btn-ghost btn-block" id="plan-tomorrow" style="margin-bottom:12px">🗓️ ให้โค้ชวางแผนมื้อพรุ่งนี้</button>`;
+  // ── น้ำ + Fasting (การ์ดเล็กวางคู่) ──
+  const waterGoal=8;
+  const water=LS.get(K.water(state.date),0);
+  const FAST_HOURS={"16:8":16,"18:6":18,"20:4":20,"OMAD":23};
+  const fast=LS.get(K.fast,{mode:"16:8",startedAt:null,streak:0,done:0,total:0,lastDone:null});
+  const fMode=fast.mode||"16:8",fTarget=FAST_HOURS[fMode]*3600000;
+  let fastBody="";
+  if(fast.startedAt){
+    const elapsed=Date.now()-fast.startedAt;
+    const fpct=Math.min(100,elapsed/fTarget*100);
+    const reached=elapsed>=fTarget;
+    const hh=Math.floor(elapsed/3600000),mm=Math.floor(elapsed%3600000/60000);
+    const remainMs=Math.max(0,fTarget-elapsed);
+    const rh=Math.floor(remainMs/3600000),rm=Math.floor(remainMs%3600000/60000);
+    fastBody=`<div id="fast-timer" class="num" style="font-size:26px;font-weight:900;margin-top:6px;color:${reached?"var(--green)":"var(--amber)"}">${hh}:${String(mm).padStart(2,"0")}</div>
+      <div style="font-size:11.5px;color:var(--text2)">${reached?"ครบเวลาแล้ว":`เหลือ ${rh} ชม. ${rm} น.`}</div>
+      <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;width:${fpct}%;background:${reached?"var(--green)":"var(--amber)"}"></div></div>
+      <button class="btn ${reached?"btn-primary":"btn-ghost"}" id="fast-end" style="width:100%;margin-top:8px;padding:8px 4px;font-size:13px">${reached?"จบ · สำเร็จ":"จบก่อนเวลา"}</button>`;
+  }else{
+    fastBody=`<div style="font-size:11.5px;color:var(--text2);margin-top:6px;line-height:1.5">อด ${FAST_HOURS[fMode]} ชม. · กิน ${24-FAST_HOURS[fMode]} ชม.${fast.done?`<br>สำเร็จ ${fast.done} ครั้ง${fast.streak?` · ต่อเนื่อง ${fast.streak}`:""}`:""}</div>
+      <div class="seg" id="fast-mode" style="margin-top:7px;padding:2px">${Object.keys(FAST_HOURS).map(mo=>`<button data-fm="${mo}" class="${mo===fMode?"on":""}" style="padding:5px 0;font-size:10.5px">${mo==="OMAD"?"OMAD":mo.split(":")[0]+"h"}</button>`).join("")}</div>
+      <button class="btn btn-ghost" id="fast-start" style="width:100%;margin-top:8px;padding:8px 4px;font-size:13px;color:var(--accent2);border-color:var(--accent)">เริ่ม ${fMode}</button>`;
+  }
+  h+=`<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:12px">
+    <div class="card" style="margin:0;padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;font-weight:700;color:var(--text)">น้ำ</span><span style="font-size:12px;color:var(--text2)">${water} / ${waterGoal} แก้ว</span></div>
+      <div style="display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:3px;margin-top:9px">${Array.from({length:waterGoal},(_,i)=>`<div style="height:16px;border-radius:3px;background:${i<water?"var(--blue)":"var(--bg3)"}"></div>`).join("")}</div>
+      <div style="font-size:11.5px;color:var(--text2);margin-top:6px">${water*250} / ${waterGoal*250} ml</div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-ghost" id="water-minus" aria-label="ลดน้ำ 1 แก้ว" style="flex:0 0 36px;padding:8px 0;font-size:15px">−</button>
+        <button class="btn" id="water-plus" style="flex:1;padding:8px 4px;background:var(--blue-bg);color:var(--blue);font-size:13px">+1 แก้ว</button>
+      </div>
+    </div>
+    <div class="card" style="margin:0;padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;font-weight:700;color:var(--text)">Fasting</span><span style="font-size:12px;color:var(--text2)">${fMode}</span></div>
+      ${fastBody}
+    </div>
+  </div>`;
+  // ── Journal — บันทึกปัจจัยเชิงคุณภาพ (ช่วยอธิบายน้ำหนักแกว่ง) ──
+  {
+    const p2=LS.get(K.profile,null);
+    const jr=getJournal(state.date);
+    const visibleTags=JOURNAL_TAGS.filter(t=>!t.femaleOnly||p2?.gender==="female");
+    h+=`<details class="card more-sec" id="journal-box" ${state.journalOpen||jr.tags.length||jr.note?"open":""}>
+      <summary style="list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+        <span><span style="display:block;font-size:14px;font-weight:700;color:var(--text)">Journal วันนี้</span><span style="display:block;font-size:12px;color:var(--text2);margin-top:1px">ปัจจัยที่ช่วยอธิบายเวลาน้ำหนักแกว่ง${jr.tags.length?` · เลือกแล้ว ${jr.tags.length}`:""}</span></span>
+        <span style="font-size:12px;color:var(--text2)">▼</span>
+      </summary>
+      <div style="height:10px"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">
+        ${visibleTags.map(t=>{
+          const on=jr.tags.includes(t.id);
+          return`<button data-jtag="${t.id}" style="background:${on?"var(--pink-bg)":"var(--bg3)"};border:1.5px solid ${on?"var(--pink)":"var(--border)"};border-radius:20px;padding:7px 13px;font-size:12px;font-weight:${on?"800":"600"};color:${on?"var(--pink)":"var(--text2)"};cursor:pointer;font-family:inherit">${t.icon} ${t.label}</button>`;
+        }).join("")}
+      </div>
+      <input id="journal-note" placeholder="โน้ตเพิ่มเติม (ไม่บังคับ)" value="${esc(jr.note)}" style="font-size:12.5px">
+    </details>`;
+  }
   return h;
 }
-
 function macro(label,v,t,c){
   const pct=Math.min(100,v/(t||1)*100);
   return`<div class="macro">
@@ -2724,6 +2689,7 @@ function bindTab(){
     const ptm=document.getElementById("plan-tomorrow");
     if(ptm)ptm.onclick=()=>{openCoach();if(getKey())coachSend("ช่วยวางแผนมื้ออาหารพรุ่งนี้ทั้งวัน ให้ถึงเป้าแคลและโปรตีน ใช้เมนูที่ผมกินได้จริงตามไลฟ์สไตล์ บอกปริมาณและ kcal คร่าวๆ ต่อมื้อ");};
     document.querySelectorAll("[data-jtag]").forEach(b=>b.onclick=()=>{toggleJournalTag(state.date,b.dataset.jtag);render();});
+    const jb=document.getElementById("journal-box");if(jb)jb.addEventListener("toggle",()=>{state.journalOpen=jb.open;});
     const jn=document.getElementById("journal-note");
     if(jn)jn.onblur=()=>setJournalNote(state.date,jn.value);
     document.querySelectorAll(".addbtn[data-meal]").forEach(b=>b.onclick=()=>openAddFood(b.dataset.meal));
@@ -3446,13 +3412,18 @@ function viewBody(){
   const body=LS.get(K.body,[]).sort((a,b)=>a.date<b.date?-1:1);
   const latest=body[body.length-1],first=body[0];
   const implied=impliedWeight(latest,p.targetBf);
-  let h=`<div class="card">
-    <div class="sechead">
-      <div><div class="lbl" style="margin-bottom:4px">ร่างกายล่าสุด ${latest?"· "+latest.date.slice(5):""}</div></div>
-      <button class="scanBtn" id="scan">📷 สแกนเครื่องชั่ง</button>
-    </div>`;
-  if(!latest)h+=`<div class="hint" style="padding:20px 0"><div class="ic">⚖️</div><div class="ht">ยังไม่มีข้อมูล</div><div class="hs">กด "สแกนเครื่องชั่ง" เพื่อเริ่มต้น</div></div>`;
-  else{
+  const mb=latestBodyMerged();
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin:4px 2px 12px">
+    <div>
+      <div style="font-size:22px;font-weight:900;color:var(--text)">ร่างกาย</div>
+      <div style="font-size:12px;color:var(--text2)">${latest?"ชั่งล่าสุด "+fmtDate(latest.date):"ยังไม่มีข้อมูล"}</div>
+    </div>
+    <button class="btn btn-ghost" id="scan" style="border-radius:999px;color:var(--accent2);border-color:var(--accent);padding:9px 16px">สแกนเครื่องชั่ง</button>
+  </div>`;
+  if(!latest){
+    h+=`<div class="card"><div class="hint" style="padding:20px 0"><div class="ic">⚖️</div><div class="ht">ยังไม่มีข้อมูล</div><div class="hs">กด "สแกนเครื่องชั่ง" เพื่อถ่ายรูปหน้าจอเครื่องชั่ง หรือกรอกเอง</div></div></div>`;
+    return h;
+  }
     const mainStats=[
       ["น้ำหนัก",latest.weight,"kg",true],
       latest.bmi!=null?["BMI",latest.bmi,""]:null,
@@ -3471,32 +3442,52 @@ function viewBody(){
       latest.boneMass!=null?["กระดูก",latest.boneMass,"kg"]:null,
       latest.metabolicAge!=null?["อายุร่างกาย",latest.metabolicAge,"ปี"]:null,
     ].filter(Boolean);
-    h+=`<div class="statrow">${mainStats.map(([l,v,u,hl])=>`<div class="stat ${hl?"hl":""}"><div class="sl">${l}</div><div class="sv num">${v}</div><div class="su">${u}</div></div>`).join("")}</div>`;
-    if(extraStats.length)h+=`<div class="statrow" style="margin-top:8px">${extraStats.map(([l,v,u])=>`<div class="stat"><div class="sl">${l}</div><div class="sv num" style="font-size:16px">${v}</div><div class="su">${u}</div></div>`).join("")}</div>`;
-  }
-  h+=`</div>`;
-  if(latest&&(p.targetWeight||p.targetBf)){
-    h+=`<div class="card"><div class="lbl" style="margin-bottom:12px">ความคืบหน้าสู่เป้าหมาย</div>`;
-    if(p.targetWeight)h+=goalBar("น้ำหนัก",first?.weight,latest.weight,p.targetWeight,"kg");
-    if(p.targetBf&&latest.bodyFat!=null)h+=goalBar("% ไขมัน",first?.bodyFat,latest.bodyFat,p.targetBf,"%");
-    if(implied)h+=`<div class="note" style="margin-top:10px">💡 ถ้ารักษากล้ามเนื้อไว้ (${Math.round(t.lean)}kg) เมื่อไขมัน ${p.targetBf}% น้ำหนักควรอยู่ที่ <b>${implied} kg</b></div>`;
-    h+=`</div>`;
-  }
+  const w=mb?.weight??latest.weight,bf=mb?.bodyFat??null;
+  const hm=(p.height||170)/100,bmi=w/(hm*hm);
+  const big=(l,v,u)=>`<div><div style="font-size:12px;color:var(--text2)">${l}</div><div class="num" style="font-size:24px;font-weight:800;color:var(--text);line-height:1.2">${v??"–"}<span style="font-size:12px;font-weight:400;color:var(--text2)"> ${u}</span></div></div>`;
+  h+=`<div class="card" style="display:grid;grid-template-columns:84px minmax(0,1fr);gap:14px;align-items:center">
+    <div>${bodyAvatarSVG(w,bf,bmi,p.gender,null,66)}</div>
+    <div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px">
+        ${big("น้ำหนัก",w,"กก.")}${big("ไขมัน",bf,"%")}
+        ${mb?.muscleMass!=null?big("กล้ามเนื้อ",mb.muscleMass,"กก."):big("BMI",bmi.toFixed(1),"")}
+        ${mb?.bmr!=null?big("BMR",Number(mb.bmr).toLocaleString("en-US"),""):(mb?.muscleMass!=null?big("BMI",bmi.toFixed(1),""):big("เป้า",p.targetWeight||"–","กก."))}
+      </div>
+      <div style="margin-top:8px">${bodyStatus(bf,bmi,p.gender)}</div>
+    </div>
+  </div>`;
+  const allStats=[...mainStats,...extraStats];
+  h+=`<details class="card more-sec" id="allstats-box" ${state.allStatsOpen?"open":""}>
+    <summary style="list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:14px;font-weight:700;color:var(--text)">ค่าทั้งหมดจากเครื่องชั่ง</span>
+      <span style="font-size:12px;color:var(--text2)">${allStats.length} ค่า ▼</span>
+    </summary>
+    <div class="statrow" style="margin-top:12px">${allStats.map(([l,v,u])=>`<div class="stat"><div class="sl">${l}</div><div class="sv num" style="font-size:16px">${v}</div><div class="su">${u}</div></div>`).join("")}</div>
+  </details>`;
   if(body.length>=2){
     const rangeDays=state.bodyRange||30;
     const cutoff=addDays(todayStr(),-rangeDays);
     const filtered=body.filter(e=>e.date>=cutoff);
     const dataW=filtered.length>=2?filtered:body;
+    const pts=dataW.filter(d=>d.weight!=null);
+    const fmtD=ds=>{const q=ds.split("-");return +q[2]+"/"+ +q[1];};
     h+=`<div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="lbl">วิเคราะห์แนวโน้ม</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:700;color:var(--text)">แนวโน้มน้ำหนัก</div>
         <div class="seg" id="rangeseg" style="padding:2px;width:auto">
-          ${[[14,"14 วัน"],[30,"30 วัน"],[90,"90 วัน"]].map(([d,l])=>`<button data-range="${d}" class="${rangeDays===d?"on":""}" style="padding:5px 10px;font-size:11px">${l}</button>`).join("")}
+          ${[[14,"14 วัน"],[30,"30 วัน"],[90,"90 วัน"]].map(([d,l])=>`<button data-range="${d}" class="${rangeDays===d?"on":""}" style="padding:5px 10px;font-size:11px;white-space:nowrap">${l}</button>`).join("")}
         </div>
       </div>
-      ${trendSummary(dataW)}
+      ${pts.length>=2?lineChart(pts.map(d=>({x:fmtD(d.date),y:d.weight})),{color:"var(--accent)"}):""}
+      <div style="margin-top:10px">${trendSummary(dataW)}</div>
     </div>`;
-    h+=trendCard("แนวโน้มน้ำหนัก (kg)",dataW,"weight","var(--accent)");
+    if(p.targetWeight||p.targetBf){
+      h+=`<div class="card"><div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px">ความคืบหน้าสู่เป้าหมาย</div>`;
+      if(p.targetWeight)h+=goalBar("น้ำหนัก",first?.weight,latest.weight,p.targetWeight,"kg");
+      if(p.targetBf&&latest.bodyFat!=null)h+=goalBar("% ไขมัน",first?.bodyFat,latest.bodyFat,p.targetBf,"%");
+      if(implied)h+=`<div class="note" style="margin-top:10px">ถ้ารักษากล้ามเนื้อไว้ (${Math.round(t.lean)} กก.) เมื่อไขมัน ${p.targetBf}% น้ำหนักควรอยู่ที่ <b>${implied} กก.</b></div>`;
+      h+=`</div>`;
+    }
     if(dataW.some(e=>e.bodyFat!=null))h+=trendCard("แนวโน้ม % ไขมัน",dataW.filter(e=>e.bodyFat!=null),"bodyFat","var(--amber)");
     if(dataW.some(e=>e.muscleMass!=null))h+=trendCard("แนวโน้มกล้ามเนื้อ (kg)",dataW.filter(e=>e.muscleMass!=null),"muscleMass","var(--green)");
   }
@@ -3554,6 +3545,7 @@ function trendCard(title,data,field,color){
 
 function bindBody(){
   const s=document.getElementById("scan");if(s)s.onclick=openScan;
+  const ab=document.getElementById("allstats-box");if(ab)ab.addEventListener("toggle",()=>{state.allStatsOpen=ab.open;});
   document.querySelectorAll("#rangeseg button").forEach(b=>b.onclick=()=>{state.bodyRange=+b.dataset.range;render();});
 }
 
@@ -3793,16 +3785,12 @@ function viewWorkout(){
     const done=LS.get(K.workout(state.date),[]);
     const exlog=LS.get(K.exlog(state.date),{});
     const total=today?.exercises?.length||0,doneCount=done.length;
-    h=`<div class="daycard">
-      <div>
-        <div class="lbl" style="margin-bottom:4px">โปรแกรม${isToday(state.date)?"วันนี้":"วัน"+PLAN_DAY_NAMES[di]}</div>
-        <div style="font-size:22px;font-weight:900;line-height:1.15;background:linear-gradient(100deg,var(--accent),var(--teal));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">วัน${PLAN_DAY_NAMES[di]} <span style="font-size:13px;color:var(--text3);font-weight:600;-webkit-text-fill-color:var(--text3);">· วันที่ ${di+1}/7</span></div>
-        <div style="font-size:13px;color:var(--text2);margin-top:2px">${today?.focus||"พักฟื้นกล้ามเนื้อ"}</div>
+    h=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin:4px 2px 14px">
+      <div style="min-width:0">
+        <div style="font-size:13px;color:var(--text2)">${isToday(state.date)?"วันนี้ · ":""}วัน${PLAN_DAY_NAMES[di]} · วันที่ ${di+1} จาก 7</div>
+        <div style="font-size:30px;font-weight:900;line-height:1.2;color:var(--text);margin-top:2px">${esc(today?.focus||"วันพัก")}</div>
       </div>
-      <div style="text-align:center;background:rgba(0,0,0,.3);border-radius:14px;padding:10px 14px">
-        <div class="lbl" style="margin-bottom:4px">วันที่</div>
-        <div class="num" style="font-size:28px;font-weight:900;color:var(--accent2)">${di+1}<span style="font-size:13px;opacity:.6">/7</span></div>
-      </div>
+      ${total?`<span style="flex-shrink:0;font-size:12px;font-weight:700;color:var(--accent2);background:var(--accent-bg);border-radius:999px;padding:5px 12px;margin-top:4px">${doneCount} / ${total} ท่า</span>`:""}
     </div>`;
     h+=weekTimelineHTML(plan,di);
     if(total>0){
@@ -3815,24 +3803,8 @@ function viewWorkout(){
       });
       const wkBody0=latestBodyMerged();
       const est0=estimateWeightKcal(today.exercises,done,wkBody0?.weight??p?.weight);
-      h+=`<div class="row" style="gap:8px;margin-bottom:10px">
-        <div class="card" style="flex:1;margin-bottom:0;padding:13px 10px;text-align:center">
-          <div class="icf icf-accent" style="margin:0 auto 7px">📊</div>
-          <div style="font-size:18px;font-weight:900;color:var(--text)">${totalVol>=1000?(totalVol/1000).toFixed(1)+"k":totalVol}</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:1px">Volume kg</div>
-        </div>
-        <div class="card" style="flex:1;margin-bottom:0;padding:13px 10px;text-align:center">
-          <div class="icf icf-amber" style="margin:0 auto 7px">🔥</div>
-          <div style="font-size:18px;font-weight:900;color:var(--text)">${est0.kcal||0}</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:1px">kcal ประเมิน</div>
-        </div>
-        <div class="card" style="flex:1;margin-bottom:0;padding:13px 10px;text-align:center">
-          <div class="icf icf-green" style="margin:0 auto 7px">✅</div>
-          <div style="font-size:18px;font-weight:900;color:var(--text)">${totalSets?Math.round(doneSets/totalSets*100):0}<span style="font-size:11px">%</span></div>
-          <div style="font-size:10px;color:var(--text3);margin-top:1px">${doneSets}/${totalSets} เซ็ต</div>
-        </div>
-      </div>`;
-      h+=`<button class="btn-save" id="guide-start" style="margin-bottom:10px;background:linear-gradient(135deg,var(--accent),var(--teal))">▶️ เริ่มพาทำ · โหมดเต็มจอ</button>`;
+      h+=`<button class="btn-save" id="guide-start" style="margin:2px 0 6px;background:var(--accent);font-size:17px">เริ่มพาทำท่า · โหมดเต็มจอ</button>
+      <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:12px">${doneSets}/${totalSets} เซ็ต · Volume ${totalVol>=1000?(totalVol/1000).toFixed(1)+"k":totalVol} กก. · ประมาณ ${est0.kcal||0} kcal</div>`;
       h+=`<div class="card" style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <div class="lbl">ท่าออกกำลัง · แตะเพื่อบันทึกน้ำหนัก</div>
@@ -3886,9 +3858,12 @@ function viewWorkout(){
   // ── HR Zone card ──
   const hr=hrZone(p?.age,latestBody()?.heartRate);
   if(hr){
-    h+=`<div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <div class="lbl">💓 HR Zone (Karvonen)</div>
+    h+=`<details class="card more-sec" id="hr-box" ${state.hrOpen?"open":""}>
+      <summary style="list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+        <span><span style="display:block;font-size:14px;font-weight:700;color:var(--text)">โซนหัวใจ (HR Zone)</span><span style="display:block;font-size:12px;color:var(--text2);margin-top:1px">Zone 2 · ${hr.zones[1].min}–${hr.zones[1].max} bpm</span></span>
+        <span style="font-size:12px;color:var(--text2)">▼</span>
+      </summary>
+      <div style="display:flex;justify-content:flex-end;align-items:center;margin:10px 0 4px">
         <button class="btn btn-ghost" id="hr-update" style="width:auto;padding:4px 12px;font-size:11px">🤖 ปรับตามความฟิต</button>
       </div>
       <div class="small" style="margin-bottom:12px">Max HR ${hr.maxHR} · Resting ${hr.rest} bpm${hr.usedDefault?` <span style="color:var(--amber)">(ค่าเริ่มต้น — สแกนเครื่องชั่งเพื่อค่าจริง)</span>`:` <span style="color:var(--green)">(จากเครื่องชั่งล่าสุด)</span>`}</div>
@@ -3902,7 +3877,7 @@ function viewWorkout(){
           <div style="font-size:14px;font-weight:800;color:${z.color}">${z.min}–${z.max}</div>
         </div>`).join("")}
       <div class="small" style="margin-top:8px">หน่วย bpm · ใช้อ้างอิงระหว่างออกกำลัง</div>
-    </div>`;
+    </details>`;
   }
 
   // ── Cardio sessions card ──
@@ -4098,6 +4073,7 @@ function lineChart(data,{color="var(--accent)",height=120,fill=true,unit=""}={})
 
 
 function bindWorkout(){
+  const hb=document.getElementById("hr-box");if(hb)hb.addEventListener("toggle",()=>{state.hrOpen=hb.open;});
   const gen=document.getElementById("gen");
   if(gen)gen.onclick=async()=>{
     gen.textContent="🤖 กำลังสร้าง...";gen.disabled=true;
@@ -4751,91 +4727,19 @@ function viewMore(){
   const avg=daysLogged?Math.round(weekCal/daysLogged):0;
   const body=LS.get(K.body,[]).sort((a,b)=>a.date<b.date?-1:1);
   const wDiff=body.length>=2?(body[body.length-1].weight-body[0].weight):null;
+  const lsObj=(p&&p.lifestyle)||{};
+  const lsFilled=["likes","dislikes","eatStyle","budget","weakness","schedule"].filter(k=>lsObj[k]).length;
+  const mo=state.moreOpen||{look:true,coach:!hasKey};
+  const grp=(id,title,sub,body,warn)=>`<details class="more-sec" data-grp="${id}" ${mo[id]?"open":""} style="margin-bottom:12px">
+    <summary style="list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:1px solid ${warn?"var(--amber)":"var(--border)"};border-radius:var(--r-md);padding:14px 16px">
+      <span style="min-width:0"><span style="display:block;font-size:15px;font-weight:700;color:var(--text)">${title}</span><span style="display:block;font-size:12px;color:${warn?"var(--amber)":"var(--text2)"};margin-top:2px">${sub}</span></span>
+      <span style="font-size:12px;color:var(--text2);flex-shrink:0">${mo[id]?"▲":"▼"}</span>
+    </summary>
+    <div style="margin-top:10px">${body}</div>
+  </details>`;
   return`
-  <div class="card">
-    <div class="lbl" style="margin-bottom:8px">🔑 API Key สำหรับฟีเจอร์ AI</div>
-    <div class="keystatus ${hasKey?"ok":"no"}" style="margin-bottom:10px">${hasKey?"● เชื่อมต่อแล้ว":"○ ยังไม่ได้ใส่ — ฟีเจอร์ AI ปิดอยู่"}</div>
-    <input id="apikey" type="password" placeholder="sk-ant-..." value="${getKey()}" style="margin-bottom:8px">
-    <div class="row" style="gap:8px">
-      <button class="btn btn-primary" id="savekey" style="flex:1">บันทึก</button>
-      ${hasKey?`<button class="btn btn-ghost" id="testkey">ทดสอบ</button>`:""}
-    </div>
-    <div class="small" style="margin-top:8px">key เก็บในเครื่องนี้เท่านั้น ไม่ส่งที่อื่น</div>
-    <div id="key-msg" style="margin-top:6px"></div>
-  </div>
-
-  <div class="card">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
-      <div class="icf icf-green" style="width:32px;height:32px;font-size:16px">🍱</div>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:800;color:var(--text)">ไลฟ์สไตล์การกิน</div>
-        <div style="font-size:10px;color:var(--text3)">โค้ชใช้ข้อมูลนี้แนะนำเมนูที่คุณกินได้จริง</div>
-      </div>
-    </div>
-    ${(()=>{const l=(p&&p.lifestyle)||{};const f=(id,lbl,ph,v)=>`<div style="margin-bottom:8px"><div class="flbl">${lbl}</div><input id="${id}" placeholder="${ph}" value="${esc(v||"")}"></div>`;
-      return f("ls-likes","อาหารที่ชอบ/กินบ่อย","เช่น ข้าวมันไก่, สลัดอกไก่, ส้มตำ",l.likes)
-      +f("ls-dislikes","ไม่กิน/แพ้","เช่น ไม่กินผักชี, แพ้กุ้ง",l.dislikes)
-      +`<div style="margin-bottom:8px"><div class="flbl">อาหารส่วนใหญ่มาจาก</div><select id="ls-eatstyle">${["","ทำกินเอง","ร้านตามสั่ง/ร้านอาหาร","ร้านสะดวกซื้อ","ผสมกัน"].map(o=>`<option value="${o}" ${l.eatStyle===o?"selected":""}>${o||"— เลือก —"}</option>`).join("")}</select></div>`
-      +f("ls-budget","งบอาหารต่อวัน","เช่น 300 บาท",l.budget)
-      +f("ls-weakness","จุดอ่อน","เช่น ของหวานตอนบ่าย, กินดึก, เครื่องดื่มหวาน",l.weakness)
-      +f("ls-schedule","ตารางชีวิต","เช่น ทำงาน 9-18 น., ออกกำลังตอนเย็น, เสาร์อาทิตย์กินข้าวกับครอบครัว",l.schedule);})()}
-    <button class="btn btn-primary btn-block" id="ls-save">บันทึกไลฟ์สไตล์</button>
-  </div>
-
-  <div class="card">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
-      <div class="icf icf-accent" style="width:32px;height:32px;font-size:16px">🧠</div>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:800;color:var(--text)">ความลึกของโค้ช</div>
-        <div style="font-size:10px;color:var(--text3)">คุมค่าใช้จ่าย AI ↔ ความละเอียดของคำแนะนำ</div>
-      </div>
-    </div>
-    <div class="seg" id="coach-mode" style="margin-bottom:9px">
-      <button data-cmode="auto" class="${getCoachMode()==="auto"?"on":""}">🧠 อัตโนมัติ</button>
-      <button data-cmode="save" class="${getCoachMode()==="save"?"on":""}">⚡ ประหยัด</button>
-      <button data-cmode="deep" class="${getCoachMode()==="deep"?"on":""}">🔬 ลึกเสมอ</button>
-    </div>
-    <div class="small">${getCoachMode()==="auto"?"คิดลึกเมื่อแนบรูป/ขอวิเคราะห์/ปรับแผน/ปรับเป้า ส่วนคำถามทั่วไปคิดแบบประหยัด และคำขอบคุณไม่คิดเลย":getCoachMode()==="save"?"ทุกข้อความไม่คิดลึก ถูกที่สุด คำตอบอาจสั้นและเจาะจงน้อยลง — เหมาะลองดูว่าพอไหม":"คิดลึกทุกข้อความ แพงสุด ละเอียดสุด"}</div>
-  </div>
-
-  <div class="card">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
-      <div class="icf icf-teal" style="width:32px;height:32px;font-size:16px">📝</div>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:800;color:var(--text)">สมุดโค้ช</div>
-        <div style="font-size:10px;color:var(--text3)">สิ่งที่โค้ชจดไว้จากการคุย · แตะ × เพื่อลบ</div>
-      </div>
-    </div>
-    ${(()=>{const m=getMemo();let o="";
-      o+=m.weeklyGoal?`<div style="background:var(--accent-bg);border-radius:var(--r-md);padding:9px 11px;margin-bottom:9px;font-size:12px;color:var(--text)">🎯 <b>เป้าสัปดาห์นี้:</b> ${esc(m.weeklyGoal.text)}<div style="font-size:10px;color:var(--text3);margin-top:2px">ตั้งเมื่อ ${esc(m.weeklyGoal.setDate)} <span data-memogoaldel="1" style="color:var(--red);cursor:pointer;margin-left:6px">ลบเป้า</span></div></div>`:`<div class="small" style="margin-bottom:9px">ยังไม่มีเป้าพฤติกรรมประจำสัปดาห์ — ลองถามโค้ชว่า "สัปดาห์นี้ควรโฟกัสอะไร"</div>`;
-      o+=m.facts.length?`<div style="display:flex;flex-direction:column;gap:5px">${m.facts.map((f,i)=>`<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:10px;padding:7px 10px;font-size:12px;color:var(--text2)"><span style="flex:1">${esc(f)}</span><span data-memodel="${i}" style="color:var(--text3);cursor:pointer;font-weight:800;padding:0 4px">×</span></div>`).join("")}</div>`:`<div class="small">ยังไม่มีบันทึก — โค้ชจะจดเองเมื่อรู้ข้อมูลที่ช่วยการแนะนำ</div>`;
-      return o;})()}
-    <button class="btn btn-ghost btn-block" id="coach-clearchat" style="margin-top:10px;font-size:12px">🗑️ ล้างประวัติแชทโค้ช (สมุดยังอยู่)</button>
-  </div>
-
-  <div class="card">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
-      <div class="icf icf-blue" style="width:32px;height:32px;font-size:16px">🔄</div>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:800;color:var(--text)">เวอร์ชันแอป</div>
-        <div style="font-size:10px;color:var(--text3)">ตอนนี้ใช้เวอร์ชัน <b style="color:var(--text2)">${APP_VERSION}</b></div>
-      </div>
-    </div>
-    <button class="btn btn-primary btn-block" id="ver-check">🔄 ตรวจหาเวอร์ชันใหม่</button>
-    <button class="btn btn-ghost btn-block" id="ver-hard" style="margin-top:8px;font-size:12px">ล้างแคชแล้วโหลดใหม่ (ถ้าติดเวอร์ชันเก่า)</button>
-    <div class="small" style="margin-top:6px">ข้อมูลของคุณ (อาหาร น้ำหนัก เซ็ต) ไม่หาย — ล้างเฉพาะตัวแอปที่เก็บไว้</div>
-  </div>
-
-  <div class="card">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
-      <div class="icf icf-red" style="width:32px;height:32px;font-size:16px">🎥</div>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:800;color:var(--text)">วิดีโอสาธิตท่าออกกำลัง</div>
-        <div style="font-size:10px;color:var(--text3)">กดปุ่ม "ดูวิดีโอสาธิตจริง" ในหน้าออกกำลัง — จะเปิดแอป YouTube ให้อัตโนมัติเพื่อค้นหาท่านั้นๆ</div>
-      </div>
-    </div>
-  </div>
-
+  <div style="font-size:22px;font-weight:900;color:var(--text);margin:4px 2px 12px">เพิ่มเติม</div>
+  ${grp("look","รูปลักษณ์และการใช้งาน","โหมดสี · สีประจำวัน · วิดีโอสาธิต",`
   <div class="card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
       <div class="icf icf-accent" style="width:32px;height:32px;font-size:16px">🎨</div>
@@ -4867,7 +4771,107 @@ function viewMore(){
     </div>
     <div class="small" style="margin-top:8px">${getThemeMode()==="auto"?`วันนี้: ${DAY_THEMES[new Date().getDay()].label} · สี${DAY_THEMES[new Date().getDay()].name}`:getThemeMode()==="off"?"ใช้ธีมม่วงมาตรฐาน":"ล็อกสีที่เลือกไว้"}</div>
   </div>
-
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
+      <div class="icf icf-red" style="width:32px;height:32px;font-size:16px">🎥</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:var(--text)">วิดีโอสาธิตท่าออกกำลัง</div>
+        <div style="font-size:10px;color:var(--text3)">กดปุ่ม "ดูวิดีโอสาธิตจริง" ในหน้าออกกำลัง — จะเปิดแอป YouTube ให้อัตโนมัติเพื่อค้นหาท่านั้นๆ</div>
+      </div>
+    </div>
+  </div>
+  `)}
+  ${grp("coach","โค้ช AI",`${hasKey?"API key ตั้งค่าแล้ว":"ยังไม่ได้ใส่ API key — ฟีเจอร์ AI ปิดอยู่"} · ไลฟ์สไตล์ ${lsFilled} จาก 6 ข้อ`,`
+  <div class="card">
+    <div class="lbl" style="margin-bottom:8px">🔑 API Key สำหรับฟีเจอร์ AI</div>
+    <div class="keystatus ${hasKey?"ok":"no"}" style="margin-bottom:10px">${hasKey?"● เชื่อมต่อแล้ว":"○ ยังไม่ได้ใส่ — ฟีเจอร์ AI ปิดอยู่"}</div>
+    <input id="apikey" type="password" placeholder="sk-ant-..." value="${getKey()}" style="margin-bottom:8px">
+    <div class="row" style="gap:8px">
+      <button class="btn btn-primary" id="savekey" style="flex:1">บันทึก</button>
+      ${hasKey?`<button class="btn btn-ghost" id="testkey">ทดสอบ</button>`:""}
+    </div>
+    <div class="small" style="margin-top:8px">key เก็บในเครื่องนี้เท่านั้น ไม่ส่งที่อื่น</div>
+    <div id="key-msg" style="margin-top:6px"></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
+      <div class="icf icf-green" style="width:32px;height:32px;font-size:16px">🍱</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:var(--text)">ไลฟ์สไตล์การกิน</div>
+        <div style="font-size:10px;color:var(--text3)">โค้ชใช้ข้อมูลนี้แนะนำเมนูที่คุณกินได้จริง</div>
+      </div>
+    </div>
+    ${(()=>{const l=(p&&p.lifestyle)||{};const f=(id,lbl,ph,v)=>`<div style="margin-bottom:8px"><div class="flbl">${lbl}</div><input id="${id}" placeholder="${ph}" value="${esc(v||"")}"></div>`;
+      return f("ls-likes","อาหารที่ชอบ/กินบ่อย","เช่น ข้าวมันไก่, สลัดอกไก่, ส้มตำ",l.likes)
+      +f("ls-dislikes","ไม่กิน/แพ้","เช่น ไม่กินผักชี, แพ้กุ้ง",l.dislikes)
+      +`<div style="margin-bottom:8px"><div class="flbl">อาหารส่วนใหญ่มาจาก</div><select id="ls-eatstyle">${["","ทำกินเอง","ร้านตามสั่ง/ร้านอาหาร","ร้านสะดวกซื้อ","ผสมกัน"].map(o=>`<option value="${o}" ${l.eatStyle===o?"selected":""}>${o||"— เลือก —"}</option>`).join("")}</select></div>`
+      +f("ls-budget","งบอาหารต่อวัน","เช่น 300 บาท",l.budget)
+      +f("ls-weakness","จุดอ่อน","เช่น ของหวานตอนบ่าย, กินดึก, เครื่องดื่มหวาน",l.weakness)
+      +f("ls-schedule","ตารางชีวิต","เช่น ทำงาน 9-18 น., ออกกำลังตอนเย็น, เสาร์อาทิตย์กินข้าวกับครอบครัว",l.schedule);})()}
+    <button class="btn btn-primary btn-block" id="ls-save">บันทึกไลฟ์สไตล์</button>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
+      <div class="icf icf-accent" style="width:32px;height:32px;font-size:16px">🧠</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:var(--text)">ความลึกของโค้ช</div>
+        <div style="font-size:10px;color:var(--text3)">คุมค่าใช้จ่าย AI ↔ ความละเอียดของคำแนะนำ</div>
+      </div>
+    </div>
+    <div class="seg" id="coach-mode" style="margin-bottom:9px">
+      <button data-cmode="auto" class="${getCoachMode()==="auto"?"on":""}">🧠 อัตโนมัติ</button>
+      <button data-cmode="save" class="${getCoachMode()==="save"?"on":""}">⚡ ประหยัด</button>
+      <button data-cmode="deep" class="${getCoachMode()==="deep"?"on":""}">🔬 ลึกเสมอ</button>
+    </div>
+    <div class="small">${getCoachMode()==="auto"?"คิดลึกเมื่อแนบรูป/ขอวิเคราะห์/ปรับแผน/ปรับเป้า ส่วนคำถามทั่วไปคิดแบบประหยัด และคำขอบคุณไม่คิดเลย":getCoachMode()==="save"?"ทุกข้อความไม่คิดลึก ถูกที่สุด คำตอบอาจสั้นและเจาะจงน้อยลง — เหมาะลองดูว่าพอไหม":"คิดลึกทุกข้อความ แพงสุด ละเอียดสุด"}</div>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
+      <div class="icf icf-teal" style="width:32px;height:32px;font-size:16px">📝</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:var(--text)">สมุดโค้ช</div>
+        <div style="font-size:10px;color:var(--text3)">สิ่งที่โค้ชจดไว้จากการคุย · แตะ × เพื่อลบ</div>
+      </div>
+    </div>
+    ${(()=>{const m=getMemo();let o="";
+      o+=m.weeklyGoal?`<div style="background:var(--accent-bg);border-radius:var(--r-md);padding:9px 11px;margin-bottom:9px;font-size:12px;color:var(--text)">🎯 <b>เป้าสัปดาห์นี้:</b> ${esc(m.weeklyGoal.text)}<div style="font-size:10px;color:var(--text3);margin-top:2px">ตั้งเมื่อ ${esc(m.weeklyGoal.setDate)} <span data-memogoaldel="1" style="color:var(--red);cursor:pointer;margin-left:6px">ลบเป้า</span></div></div>`:`<div class="small" style="margin-bottom:9px">ยังไม่มีเป้าพฤติกรรมประจำสัปดาห์ — ลองถามโค้ชว่า "สัปดาห์นี้ควรโฟกัสอะไร"</div>`;
+      o+=m.facts.length?`<div style="display:flex;flex-direction:column;gap:5px">${m.facts.map((f,i)=>`<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:10px;padding:7px 10px;font-size:12px;color:var(--text2)"><span style="flex:1">${esc(f)}</span><span data-memodel="${i}" style="color:var(--text3);cursor:pointer;font-weight:800;padding:0 4px">×</span></div>`).join("")}</div>`:`<div class="small">ยังไม่มีบันทึก — โค้ชจะจดเองเมื่อรู้ข้อมูลที่ช่วยการแนะนำ</div>`;
+      return o;})()}
+    <button class="btn btn-ghost btn-block" id="coach-clearchat" style="margin-top:10px;font-size:12px">🗑️ ล้างประวัติแชทโค้ช (สมุดยังอยู่)</button>
+  </div>
+  `,!hasKey)}
+  ${grp("goal","เป้าหมายและโปรไฟล์",`เป้า ${Number(t.cal).toLocaleString("en-US")} kcal · โปรตีน ${t.protein} ก.`,`
+  <div class="card">
+    <div class="lbl" style="margin-bottom:10px">เป้าหมายโภชนาการ/วัน ${lb?.bmr?'<span style="color:var(--green);font-size:10px">· BMR จากเครื่องชั่ง</span>':""}</div>
+    <div class="statrow">${stat("BMR",t.bmr,"kcal")}${stat("TDEE",t.tdee,"kcal")}${stat("เป้าหมาย",t.cal,"kcal",true)}</div>
+    <div class="statrow" style="margin-top:8px">${stat("โปรตีน",t.protein,"g")}${stat("คาร์บ",t.carb,"g")}${stat("ไขมัน",t.fat,"g")}</div>
+    <div class="small" style="margin-top:8px">โปรตีน = lean mass ${t.lean}kg × 2.4g เพื่อรักษากล้ามเนื้อ</div>
+  </div>
+  <div class="card">
+    <div class="lbl" style="margin-bottom:12px">แก้ไขข้อมูลและเป้าหมาย</div>
+    <div id="pform"></div>
+  </div>
+  `)}
+  ${grp("plan","สรุปและแผน",`เฉลี่ย 7 วัน ${avg?Number(avg).toLocaleString("en-US")+" kcal":"–"} · บันทึก ${daysLogged}/7 วัน`,`
+  <div class="card">
+    <div class="lbl" style="margin-bottom:10px">📊 สรุป 7 วันล่าสุด</div>
+    <div class="statrow">
+      ${stat("เฉลี่ย/วัน",avg,"kcal",true)}
+      ${stat("เป้าหมาย",t.cal,"kcal")}
+      ${stat("วันที่บันทึก",daysLogged,"/7")}
+    </div>
+    ${wDiff!=null?`<div style="margin-top:12px;font-size:14px;font-weight:700;color:${wDiff<=0?"var(--green)":"var(--red)"}">${wDiff<=0?"▼":"▲"} ${Math.abs(wDiff).toFixed(1)} kg ตั้งแต่เริ่มบันทึก</div>`:""}
+    ${avg?`<div class="small" style="margin-top:6px">${avg<=t.cal?"✅ เฉลี่ยอยู่ในเป้า":"⚠️ เฉลี่ยเกินเป้า ลองลดคาร์บมื้อเย็น"}</div>`:""}
+  </div>
+  ${bankingCard()}
+  ${weeklySummaryCard()}
+  ${progressTimelineCard(p)}
+  `)}
+  ${grp("food","อาหารที่บันทึกไว้",`รายการโปรด ${LS.get(K.fav,[]).length} · ฐานข้อมูลอาหารส่วนตัว`,`
+  <div class="card">
+    <div class="lbl" style="margin-bottom:8px">⭐ รายการโปรด (${LS.get(K.fav,[]).length})</div>
+    <div id="favmgr">${LS.get(K.fav,[]).map((f,i)=>`<span class="chip">${esc(f.name)} <span class="cc">${f.cal} kcal</span> <span data-favdel="${i}" style="color:var(--red);font-weight:700;margin-left:4px;cursor:pointer">×</span></span>`).join("")||`<div class="small">ยังไม่มี — บันทึกได้ตอนเพิ่มอาหาร</div>`}</div>
+  </div>
   <div class="card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
       <div class="icf icf-teal" style="width:32px;height:32px;font-size:16px">🗄️</div>
@@ -4893,7 +4897,8 @@ function viewMore(){
       <div class="small" style="margin-top:8px">แตะรายการเพื่อลบ (เผื่อค่าผิด)</div>`;
     })()}
   </div>
-
+  `)}
+  ${grp("data","ข้อมูลและสำรอง","สำรอง · กู้คืน · ล้างข้อมูล",`
   <div class="card">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
       <div class="icf icf-green" style="width:32px;height:32px;font-size:16px">💾</div>
@@ -4909,52 +4914,33 @@ function viewMore(){
     <input type="file" id="import-file" accept="application/json,.json" style="display:none">
     <div id="backup-msg" style="margin-top:9px"></div>
   </div>
-
-  <div class="card">
-    <div class="lbl" style="margin-bottom:10px">📊 สรุป 7 วันล่าสุด</div>
-    <div class="statrow">
-      ${stat("เฉลี่ย/วัน",avg,"kcal",true)}
-      ${stat("เป้าหมาย",t.cal,"kcal")}
-      ${stat("วันที่บันทึก",daysLogged,"/7")}
-    </div>
-    ${wDiff!=null?`<div style="margin-top:12px;font-size:14px;font-weight:700;color:${wDiff<=0?"var(--green)":"var(--red)"}">${wDiff<=0?"▼":"▲"} ${Math.abs(wDiff).toFixed(1)} kg ตั้งแต่เริ่มบันทึก</div>`:""}
-    ${avg?`<div class="small" style="margin-top:6px">${avg<=t.cal?"✅ เฉลี่ยอยู่ในเป้า":"⚠️ เฉลี่ยเกินเป้า ลองลดคาร์บมื้อเย็น"}</div>`:""}
-  </div>
-
-  <div class="card">
-    <div class="lbl" style="margin-bottom:10px">เป้าหมายโภชนาการ/วัน ${lb?.bmr?'<span style="color:var(--green);font-size:10px">· BMR จากเครื่องชั่ง</span>':""}</div>
-    <div class="statrow">${stat("BMR",t.bmr,"kcal")}${stat("TDEE",t.tdee,"kcal")}${stat("เป้าหมาย",t.cal,"kcal",true)}</div>
-    <div class="statrow" style="margin-top:8px">${stat("โปรตีน",t.protein,"g")}${stat("คาร์บ",t.carb,"g")}${stat("ไขมัน",t.fat,"g")}</div>
-    <div class="small" style="margin-top:8px">โปรตีน = lean mass ${t.lean}kg × 2.4g เพื่อรักษากล้ามเนื้อ</div>
-  </div>
-
-  <div class="card">
-    <div class="lbl" style="margin-bottom:12px">แก้ไขข้อมูลและเป้าหมาย</div>
-    <div id="pform"></div>
-  </div>
-
-  <div class="card">
-    <div class="lbl" style="margin-bottom:8px">⭐ รายการโปรด (${LS.get(K.fav,[]).length})</div>
-    <div id="favmgr">${LS.get(K.fav,[]).map((f,i)=>`<span class="chip">${esc(f.name)} <span class="cc">${f.cal} kcal</span> <span data-favdel="${i}" style="color:var(--red);font-weight:700;margin-left:4px;cursor:pointer">×</span></span>`).join("")||`<div class="small">ยังไม่มี — บันทึกได้ตอนเพิ่มอาหาร</div>`}</div>
-  </div>
-
   <div class="card">
     <div class="lbl" style="margin-bottom:10px">💾 ข้อมูล</div>
     <button class="btn btn-primary btn-block" id="export" style="margin-bottom:8px">📤 ส่งออกข้อมูลสำรอง</button>
     <button class="btn btn-ghost btn-block" id="import">📥 นำเข้าจากไฟล์</button>
     <input type="file" accept="application/json" id="importfile" style="display:none">
   </div>
-  ${bankingCard()}
-  ${weeklySummaryCard()}
-  ${progressTimelineCard(p)}
+  `)}
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
+      <div class="icf icf-blue" style="width:32px;height:32px;font-size:16px">🔄</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:var(--text)">เวอร์ชันแอป</div>
+        <div style="font-size:10px;color:var(--text3)">ตอนนี้ใช้เวอร์ชัน <b style="color:var(--text2)">${APP_VERSION}</b></div>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" id="ver-check">🔄 ตรวจหาเวอร์ชันใหม่</button>
+    <button class="btn btn-ghost btn-block" id="ver-hard" style="margin-top:8px;font-size:12px">ล้างแคชแล้วโหลดใหม่ (ถ้าติดเวอร์ชันเก่า)</button>
+    <div class="small" style="margin-top:6px">ข้อมูลของคุณ (อาหาร น้ำหนัก เซ็ต) ไม่หาย — ล้างเฉพาะตัวแอปที่เก็บไว้</div>
+  </div>
   <div style="text-align:center;color:var(--text3);font-size:11px;padding:10px 0 20px;letter-spacing:.3px">FitLog · ข้อมูลเก็บในเครื่องนี้</div>`;
 }
-
 function stat(l,v,u,hl){
   return`<div class="stat ${hl?"hl":""}"><div class="sl">${l}</div><div class="sv num">${v}</div><div class="su">${u}</div></div>`;
 }
 
 function bindMore(){
+  document.querySelectorAll("details[data-grp]").forEach(d=>d.addEventListener("toggle",()=>{state.moreOpen={...(state.moreOpen||{look:true,coach:!getKey()}),[d.dataset.grp]:d.open};const ar=d.querySelector("summary>span:last-child");if(ar)ar.textContent=d.open?"▲":"▼";}));
   document.querySelectorAll("#coach-mode button").forEach(b=>b.onclick=()=>{LS.set(COACH_MODE_KEY,b.dataset.cmode);render();toast("✅ ตั้งโหมดโค้ชแล้ว");});
   const vc=document.getElementById("ver-check");if(vc)vc.onclick=()=>checkForUpdate(true);
   const vh=document.getElementById("ver-hard");if(vh)vh.onclick=()=>{if(confirm("ล้างแคชแอปแล้วโหลดใหม่? (ข้อมูลของคุณไม่หาย)"))hardReload();};
