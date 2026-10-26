@@ -175,6 +175,7 @@ body{font-family:'Noto Sans Thai',system-ui,sans-serif;background:var(--bg);colo
   font-size:12px;font-weight:700;color:var(--text);font-family:inherit;
 }
 .qa-btn:active{transform:scale(.96);background:var(--card2);}
+.more-sec>summary::-webkit-details-marker{display:none}
 .icf-accent{background:linear-gradient(145deg,rgba(139,127,249,.32),rgba(139,127,249,.11));}
 .icf-green{background:linear-gradient(145deg,rgba(61,220,151,.32),rgba(61,220,151,.11));}
 .icf-amber{background:linear-gradient(145deg,rgba(255,180,67,.32),rgba(255,180,67,.11));}
@@ -1345,7 +1346,7 @@ function closeGuide(){
 }
 
 const MODEL="claude-sonnet-5";
-const APP_VERSION="2026.10.19.2"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
+const APP_VERSION="2026.10.26.1"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
 
 /* ── storage ── */
 const LS={
@@ -2092,23 +2093,80 @@ function viewHome(){
   const heightM=(p.height||170)/100;
   const bmi=weight/(heightM*heightM);
 
-  let h=`<div style="text-align:center;padding:8px 0 4px">
-    <div style="margin-bottom:2px;font-size:11px;font-weight:800;letter-spacing:.3px;background:linear-gradient(100deg,var(--accent2),var(--teal));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;display:inline-block;">${isToday(state.date)?"สวัสดี":"ดูข้อมูลย้อนหลัง"} · ${fmtDate(state.date)}</div>
-  </div>`;
+  const cardioToday=LS.get(K.cardio(state.date),[]);
+  const burn=cardioToday.reduce((a,c)=>a+(c.calories||0),0);
+  const bonusEx=exerciseBonus(burn,p);
+  const pEat=food.reduce((a,f)=>a+(f.protein||0),0);
+  const cEat=food.reduce((a,f)=>a+(f.carb||0),0);
+  const fEat=food.reduce((a,f)=>a+(f.fat||0),0);
+  const wtr=weightTrend(state.date,7);
+  const wsT=waistTrend(state.date,14);
+  const n0=v=>Number(v).toLocaleString("en-US");
+  const over=remain<0;
+  const trendTxt=t=>t&&t.dir!=="flat"?`${t.dir==="down"?"ลง":"ขึ้น"} ${Math.abs(t.perWeek)} กก./สัปดาห์`:(t?"นิ่ง":"");
+  const trendCol=t=>t?(t.dir==="down"?"var(--green)":t.dir==="up"?"var(--amber)":"var(--text3)"):"var(--text3)";
+  const pill=wtr?(wtr.dir==="down"?"น้ำหนักกำลังลง":wtr.dir==="up"?"น้ำหนักกำลังขึ้น":"น้ำหนักนิ่ง"):"";
+  const sideBlk=(label,val,unit,sub,subCol,align)=>`<div style="text-align:${align}">
+      <div style="font-size:12px;color:var(--text2)">${label}</div>
+      <div style="display:flex;align-items:baseline;gap:4px;justify-content:${align==="right"?"flex-end":"flex-start"}"><span style="font-size:28px;font-weight:800;color:var(--text);line-height:1.15">${val}</span><span style="font-size:12px;color:var(--text2)">${unit}</span></div>
+      <div style="font-size:12px;color:${subCol};min-height:16px">${sub||""}</div>
+      <div style="height:1px;background:var(--border);margin-top:7px"></div>
+    </div>`;
+  const leftB=[
+    sideBlk("น้ำหนัก",weight??"–","กก.",trendTxt(wtr),trendCol(wtr),"left"),
+    (mb?.waist!=null)?sideBlk("รอบเอว",mb.waist,"ซม.",wsT&&wsT.dir!=="flat"?`${wsT.delta<0?"ลง":"ขึ้น"} ${Math.abs(wsT.delta)} ซม. ใน 14 วัน`:"",wsT?trendCol({dir:wsT.dir==="down"?"down":wsT.dir==="up"?"up":"flat"}):"var(--text3)","left")
+      :sideBlk("กล้ามเนื้อ",mb?.muscleMass??"–","กก.","","var(--text3)","left")
+  ];
+  const rightB=[
+    sideBlk("ไขมัน",bf!=null?bf:"–","%",p.targetBf?`เป้า ${p.targetBf}%`:"","var(--text2)","right"),
+    sideBlk("BMI",bmi?bmi.toFixed(1):"–","","","var(--text3)","right")
+  ];
+  const chip=(label,v,tg,color)=>{
+    const pc=Math.min(100,tg?v/tg*100:0);
+    return`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px">
+      <div style="font-size:12px;color:var(--text2)">${label}</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin-top:1px">${v}<span style="font-weight:400;color:var(--text2)"> / ${tg} ก.</span></div>
+      <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:7px;overflow:hidden"><div style="height:100%;width:${pc}%;background:${color};border-radius:2px;transition:width .5s"></div></div>
+    </div>`;
+  };
 
-  // ── Body Avatar card ──
-  h+=`<div class="card card-glow" style="text-align:center;padding:20px 16px">
-    ${bodyAvatarSVG(weight,bf,bmi,p.gender)}
-    <div style="margin-top:6px">${bodyStatus(bf,bmi,p.gender)}</div>
-    <div class="statrow" style="margin-top:16px">
-      ${stat("น้ำหนัก",weight??"–","kg",true)}
-      ${bf!=null?stat("ไขมัน",bf,"%",true):stat("ไขมัน","–","%")}
-      ${lb?.muscleMass!=null?stat("กล้ามเนื้อ",lb.muscleMass,"kg"):stat("BMI",bmi?bmi.toFixed(1):"–","")}
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px 0">
+    <span style="font-size:13px;color:var(--text2)">${isToday(state.date)?"สวัสดี":"ดูข้อมูลย้อนหลัง"} · ${fmtDate(state.date)}</span>
+    ${pill?`<span style="font-size:12px;font-weight:600;color:var(--accent2);background:var(--accent-bg);border-radius:999px;padding:4px 12px">${pill}</span>`:""}
+  </div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 136px minmax(0,1fr);align-items:stretch;padding:4px 0 0;min-height:272px">
+    <div style="display:flex;flex-direction:column;justify-content:space-around;padding:14px 0">${leftB.join("")}</div>
+    <div style="display:flex;align-items:center;justify-content:center">${bodyAvatarSVG(weight,bf,bmi,p.gender,t.cal?eaten/t.cal:0)}</div>
+    <div style="display:flex;flex-direction:column;justify-content:space-around;padding:14px 0">${rightB.join("")}</div>
+  </div>
+  <div style="text-align:center;padding:2px 0 0">
+    <div style="font-size:13px;color:var(--text2)">${over?"เกินเป้าแล้ว":(isToday(state.date)?"วันนี้กินได้อีก":"วันนั้นเหลือ")}${dt.banked?` · <span style="color:var(--accent2)">ปรับโดยแผน</span>`:""}</div>
+    <div style="display:flex;align-items:baseline;justify-content:center;gap:8px">
+      <span style="font-size:58px;font-weight:900;line-height:1.1;letter-spacing:-1px;color:${over?"var(--red)":"var(--accent)"}">${n0(Math.abs(remain))}</span>
+      <span style="font-size:15px;color:var(--text2)">kcal</span>
     </div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.5">กินแล้ว ${n0(eaten)} จากเป้า ${n0(t.cal)}${burn?` · ออกกำลัง ${n0(burn)} ${bonusEx?`<span style="color:var(--green)">กินเพิ่มได้ +${bonusEx}</span>`:"รวมในเป้าแล้ว"}`:""}</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0 14px">
+    ${chip("โปรตีน",pEat,t.protein,"var(--accent2)")}
+    ${chip("คาร์บ",cEat,t.carb,"var(--teal)")}
+    ${chip("ไขมัน",fEat,t.fat,"var(--amber)")}
+  </div>
+  <button class="btn btn-primary btn-block" id="go-food">+ บันทึกอาหาร</button>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0 14px">
+    <button class="btn btn-ghost" id="go-workout" style="padding:10px 4px;font-size:13px">ท่าฝึก</button>
+    <button class="btn btn-ghost" id="go-body" style="padding:10px 4px;font-size:13px">ชั่งร่างกาย</button>
+    <button class="btn btn-ghost" id="go-coach" style="padding:10px 4px;font-size:13px">ถามโค้ช AI</button>
   </div>`;
 
   // ── Insight ประจำวัน ──
   h+=insightCard("home");
+  const isMon=isToday(state.date)&&new Date().getDay()===1;
+  h+=`<details class="more-sec" id="home-more" ${state.homeMore?"open":""}>
+    <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;margin-bottom:12px;font-size:14px;font-weight:700;color:var(--text)">
+      <span>สรุปและตัวเลขเชิงลึก</span>
+      <span style="color:var(--text2);font-size:12px;white-space:nowrap">${isMon?`<span style="font-weight:600;color:var(--accent2);background:var(--accent-bg);border-radius:999px;padding:3px 9px;margin-right:6px">สรุปวันจันทร์</span>`:""}${state.homeMore?"▲":"▼"}</span>
+    </summary>`;
   // ── Engine analysis ──
   h+=engineCard();
   h+=tdeeCard();
@@ -2210,53 +2268,6 @@ function viewHome(){
     h+=`</div>`;
   }
 
-  // ── สรุปวันนี้ (hero card) ──
-  const cardioToday=LS.get(K.cardio(state.date),[]);
-  const burn=cardioToday.reduce((a,c)=>a+(c.calories||0),0);
-  const bonusEx=exerciseBonus(burn,p);
-  const pEat=food.reduce((a,f)=>a+(f.protein||0),0);
-  const cEat=food.reduce((a,f)=>a+(f.carb||0),0);
-  const fEat=food.reduce((a,f)=>a+(f.fat||0),0);
-  const macroRow=(ic,cls,label,v,tg,color)=>{
-    const p=Math.min(100,tg?v/tg*100:0);
-    return`<div style="display:flex;align-items:center;gap:9px;margin-bottom:9px">
-      <div class="icf ${cls}" style="width:32px;height:32px;font-size:16px;border-radius:10px">${ic}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-          <span style="font-size:11.5px;font-weight:700;color:var(--text)">${label}</span>
-          <span style="font-size:11px;color:var(--text2)"><b style="color:var(--text)">${v}</b> / ${tg} ก. <b style="color:${color}">${Math.round(p)}%</b></span>
-        </div>
-        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${p}%;background:${color};border-radius:3px;transition:width .5s"></div>
-        </div>
-      </div>
-    </div>`;
-  };
-  h+=`<div class="card" style="background:linear-gradient(150deg,var(--hero-a,#2B2944),var(--hero-b,#1A252E) 55%,var(--card));border-color:rgba(139,127,249,0.22)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="icf icf-green" style="width:34px;height:34px">⚡</div>
-        <div>
-          <div style="font-size:13px;font-weight:800;color:var(--text)">${isToday(state.date)?"พลังงานวันนี้":"พลังงาน · "+fmtDate(state.date)}</div>
-          <div style="font-size:10px;color:var(--text2)">${isToday(state.date)?"Real-time":"ข้อมูลย้อนหลัง"}</div>
-        </div>
-      </div>
-      ${dt.banked?`<span style="font-size:10px;font-weight:700;color:var(--accent2);background:var(--accent-bg);padding:4px 10px;border-radius:11px">🏦 ปรับโดยแผน</span>`:""}
-    </div>
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
-      ${calorieRing(eaten,t.cal)}
-      <div style="flex:1;min-width:0">
-        ${macroRow("💪","icf-accent","โปรตีน",pEat,t.protein,"var(--accent2)")}
-        ${macroRow("🍚","icf-teal","คาร์บ",cEat,t.carb,"var(--teal)")}
-        ${macroRow("🥑","icf-amber","ไขมัน",fEat,t.fat,"var(--amber)")}
-      </div>
-    </div>
-    ${burn?`<div style="display:flex;justify-content:center;gap:6px;font-size:11px;color:var(--text3);margin-bottom:12px">
-      <span>🔥 เผาผลาญ <b style="color:var(--amber)">${burn}</b> kcal</span><span>·</span><span>${bonusEx?`กินเพิ่มได้ <b style="color:var(--green)">+${bonusEx}</b> kcal`:`รวมอยู่ในเป้าแล้ว`}</span>
-    </div>`:""}
-    <button class="btn btn-primary btn-block" id="go-food">+ บันทึกอาหาร</button>
-  </div>`;
-
   // ── Energy Bank — คะแนนรวม 0-100 ──
   {
     const eb=computeEnergyBank(state.date);
@@ -2294,30 +2305,7 @@ function viewHome(){
     </div>`;
   }
 
-  // ── บันทึกวันนี้ (quick actions) ──
-  h+=`<div class="card">
-    <div style="display:flex;align-items:center;gap:7px;margin-bottom:13px">
-      <span style="font-size:17px;color:var(--accent2);font-weight:900;line-height:1">+</span>
-      <span style="font-size:14px;font-weight:800;color:var(--text)">บันทึกวันนี้</span>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">
-      <button class="qa-btn" id="go-food2">
-        <div class="icf icf-green" style="width:46px;height:46px;font-size:24px;border-radius:14px">🥗</div>
-        <div>อาหาร</div>
-      </button>
-      <button class="qa-btn" id="go-workout">
-        <div class="icf icf-blue" style="width:46px;height:46px;font-size:24px;border-radius:14px">🏋️</div>
-        <div>ท่าฝึก</div>
-      </button>
-      <button class="qa-btn" id="go-body">
-        <div class="icf icf-accent" style="width:46px;height:46px;font-size:24px;border-radius:14px">⚖️</div>
-        <div>ร่างกาย</div>
-      </button>
-    </div>
-    <button class="btn btn-ghost btn-block" id="go-coach" style="margin-top:11px;display:flex;align-items:center;justify-content:center;gap:8px">
-      <span style="font-size:17px">🤖</span><span>ปรึกษาเทรนเนอร์ AI</span>
-    </button>
-  </div>`;
+  h+=`</details>`;
 
   if(!lb)h+=`<div class="note">💡 สแกนเครื่องชั่งครั้งแรกในแท็บ "ร่างกาย" เพื่อให้ภาพร่างกายและค่าต่างๆ แม่นยำขึ้น</div>`;
   return h;
@@ -2327,7 +2315,7 @@ function viewHome(){
 /* SVG silhouette สมจริงขึ้น — หัวทรงไข่ คอชัด ท่ายืนธรรมชาติ สะดือ เท้าเป็นรูปเท้า (ไม่มีนิ้ว)
    ระบบสี/สถานะ 5 ระดับเหมือนเดิมทุกอย่าง แค่เปลี่ยนรูปร่างพื้นฐาน */
 // โครงร่างมนุษย์ด้านหน้า แบบเส้นต่อเนื่อง (ไม่ใช่ประกอบจากก้อนรูปทรง)
-function bodyAvatarSVG(weight,bf,bmi,gender){
+function bodyAvatarSVG(weight,bf,bmi,gender,fill){
   let fatLevel,tier;
   if(bf!=null){
     fatLevel=gender==="female"?Math.max(0,Math.min(1,(bf-18)/22)):Math.max(0,Math.min(1,(bf-8)/22));
@@ -2407,21 +2395,34 @@ function bodyAvatarSVG(weight,bf,bmi,gender){
   }else if(tier==="obese"){
     extras+=`<path d="M${cx-wa+8},196 Q${cx},${210+f*6} ${cx+wa-8},196" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="1.8" stroke-linecap="round"/>`;
   }
-  return`<svg viewBox="0 0 200 400" width="130" height="260" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto">
-    <defs>
+  const shapes=`<path d="${arm(-1)}"/><path d="${arm(1)}"/><path d="${d}"/><ellipse cx="${cx}" cy="30" rx="${F?17:18}" ry="23"/>`;
+  const defs=`<defs>
       <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient>
       <radialGradient id="bodyHi" cx="38%" cy="28%" r="60%"><stop offset="0%" stop-color="#fff" stop-opacity=".22"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient>
       <filter id="glow" x="-30%" y="-10%" width="160%" height="120%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    </defs>
+    </defs>`;
+  if(fill==null){
+    return`<svg viewBox="0 0 200 400" width="130" height="260" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto">
+    ${defs}
     <ellipse cx="${cx}" cy="392" rx="${34+f*8}" ry="5" fill="rgba(0,0,0,.35)"/>
-    <g fill="url(#bodyGrad)" filter="url(#glow)">
-      <path d="${arm(-1)}"/><path d="${arm(1)}"/>
-      <path d="${d}"/>
-      <ellipse cx="${cx}" cy="30" rx="${F?17:18}" ry="23"/>
-    </g>
+    <g fill="url(#bodyGrad)" filter="url(#glow)">${shapes}</g>
     <path d="${d}" fill="url(#bodyHi)"/>
     <circle cx="${cx}" cy="184" r="1.8" fill="rgba(0,0,0,.28)"/>
     ${extras}
+  </svg>`;
+  }
+  // โหมดเติมตามแคลที่กิน: เงาเทา + สีจริงเติมจากเท้าขึ้นมา
+  const pct=Math.max(0,Math.min(1,fill));
+  const lvl=+(388-pct*382).toFixed(1);
+  return`<svg viewBox="0 0 200 400" width="134" height="268" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto" role="img" aria-label="ร่างกายเติมสีตามแคลที่กินแล้ว ${Math.round(pct*100)} เปอร์เซ็นต์ของเป้า">
+    ${defs}
+    <defs><clipPath id="avFill"><rect x="0" y="${lvl}" width="200" height="400"/></clipPath><g id="avShapes">${shapes}</g></defs>
+    <ellipse cx="${cx}" cy="392" rx="${34+f*8}" ry="5" fill="rgba(0,0,0,.3)"/>
+    <use href="#avShapes" fill="var(--bg3)" stroke="var(--border)" stroke-width="2"/>
+    <g clip-path="url(#avFill)"><g fill="url(#bodyGrad)" filter="url(#glow)"><use href="#avShapes"/></g></g>
+    <path d="${d}" fill="url(#bodyHi)" clip-path="url(#avFill)"/>
+    ${pct>0&&pct<1?`<line x1="14" y1="${lvl}" x2="186" y2="${lvl}" stroke="var(--accent2)" stroke-width="2" stroke-dasharray="6 5" opacity=".9"/>`:""}
+    <g clip-path="url(#avFill)">${extras}</g>
   </svg>`;
 }
 
@@ -2695,6 +2696,7 @@ function macroRing(label,v,t,color){
 
 function bindTab(){
   if(state.tab==="home"){
+    const hm=document.getElementById("home-more");if(hm)hm.addEventListener("toggle",()=>{state.homeMore=hm.open;});
     const gf=document.getElementById("go-food");if(gf)gf.onclick=()=>{state.tab="food";render();};
     const gf2=document.getElementById("go-food2");if(gf2)gf2.onclick=()=>{state.tab="food";render();};
     const gw=document.getElementById("go-workout");if(gw)gw.onclick=()=>{state.tab="workout";render();};
