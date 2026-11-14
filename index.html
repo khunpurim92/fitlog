@@ -1371,7 +1371,7 @@ function closeGuide(){
 }
 
 const MODEL="claude-sonnet-5";
-const APP_VERSION="2026.11.14.1"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
+const APP_VERSION="2026.11.14.2"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
 
 /* ── storage ── */
 const LS={
@@ -2398,8 +2398,58 @@ function syncExBuild(){
   Object.keys(EX_ANIM).forEach(k=>{if(!EXERCISE_DIAGRAMS[k]&&P[k])EXERCISE_DIAGRAMS[k]=exFigureAt(k,0);});
 }
 
+/* ═══ ภาพอวาตาร์ของผู้ใช้เอง: เก็บในเครื่องเท่านั้น (localStorage) ไม่อยู่ในโค้ด/เซิร์ฟเวอร์ ═══ */
+const AVIMG_KEY="fl_avimg";
+let _avPackC={raw:null,val:null};
+function avPack(){
+  let raw=null;try{raw=localStorage.getItem(AVIMG_KEY);}catch(_){}
+  if(!raw)return null;
+  if(_avPackC.raw!==raw){
+    let v=null;try{v=JSON.parse(raw);}catch(_){}
+    _avPackC={raw,val:v&&Array.isArray(v.imgs)&&v.imgs.length&&v.imgs.every(x=>x&&typeof x.data==="string"&&x.data.startsWith("data:image/"))?v:null};
+  }
+  return _avPackC.val;
+}
+/* เลือกภาพตาม % ไขมัน (imgs เรียงจากไขมันมาก → น้อย, min = ขอบล่างของช่วง) */
+function avLevel(bf,bmi){
+  const p=avPack();if(!p)return -1;
+  const n=p.imgs.length;let i;
+  if(bf!=null){i=p.imgs.findIndex(x=>bf>=(+x.min||0));if(i<0)i=n-1;}
+  else{const b=bmi??24;i=[27,25,23].findIndex(x=>b>=x);if(i<0)i=3;i=Math.min(i,n-1);}
+  return i;
+}
+function avImgSVG(lv,fill,w){
+  const src=avPack().imgs[lv].data,u="ai"+(++_avN);
+  const img=`<image href="${src}" x="0" y="3" width="200" height="390" preserveAspectRatio="xMidYMid meet"/>`;
+  const ground=`<ellipse cx="100" cy="391" rx="46" ry="5" fill="rgba(0,0,0,.34)" filter="url(#fxSoft)"/>`;
+  if(fill==null)return`<svg viewBox="0 0 200 400" width="${w||130}" height="${(w||130)*2}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto" role="img" aria-label="ภาพอวาตาร์ของคุณ ระดับ ${lv+1}">${ground}${img}</svg>`;
+  const pct=Math.max(0,Math.min(1,fill)),lvl=+(390-pct*384).toFixed(1);
+  return`<svg viewBox="0 0 200 400" width="134" height="268" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto" role="img" aria-label="ภาพอวาตาร์เติมสีตามแคลที่กินแล้ว ${Math.round(pct*100)} เปอร์เซ็นต์ของเป้า">
+    <defs><clipPath id="${u}lo"><rect x="-10" y="${lvl}" width="220" height="420"/></clipPath><clipPath id="${u}hi"><rect x="-10" y="-10" width="220" height="${lvl+10}"/></clipPath></defs>
+    ${ground}
+    <g clip-path="url(#${u}hi)"><g style="filter:grayscale(1) brightness(.6);opacity:.5">${img}</g></g>
+    <g clip-path="url(#${u}lo)">${img}</g>
+    ${pct>0&&pct<1?`<line x1="14" y1="${lvl}" x2="186" y2="${lvl}" stroke="var(--accent2)" stroke-width="2" stroke-dasharray="6 5" opacity=".9"/>`:""}
+  </svg>`;
+}
+function importAvatarPack(file,done){
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      const imgs=(d&&d.imgs||[]).filter(x=>x&&typeof x.data==="string"&&x.data.startsWith("data:image/")).map(x=>({min:+x.min||0,data:x.data})).sort((a,b)=>b.min-a.min);
+      if(d.type!=="fitlog-avatar-pack"||!imgs.length)throw new Error("bad");
+      try{localStorage.setItem(AVIMG_KEY,JSON.stringify({v:1,updated:state.date,imgs}));}
+      catch(_){toast("❌ พื้นที่เก็บข้อมูลในเครื่องไม่พอสำหรับภาพ");return;}
+      toast(`✅ นำเข้าภาพอวาตาร์ ${imgs.length} ระดับแล้ว`);done&&done();
+    }catch(_){toast("❌ ไฟล์ไม่ใช่ชุดภาพอวาตาร์ของ FitLog");}
+  };
+  r.readAsText(file);
+}
+
 let _avN=0;
 function bodyAvatarSVG(weight,bf,bmi,gender,fill,w){
+  const _lv=avLevel(bf,bmi);if(_lv>=0)return avImgSVG(_lv,fill,w);
   const D=avDims(weight,bf,bmi,gender);
   const{F,f,tier,sh,ch,wa,hp,th,aw,nk,def}=D;
   const hue=tier==="under"?205:120-f*120; // ผอมเกินไป = ฟ้า (ไม่ใช่เขียวที่สื่อว่าดี)
@@ -3637,6 +3687,8 @@ function bindBody(){
 const SHAPE_FIELDS=[["shoulder","ไหล่","กว้างขึ้น/แคบลง"],["chest","อก","หนา/บางลง"],["arm","แขน","ใหญ่ขึ้น/เล็กลง"],["thigh","ต้นขา","ใหญ่ขึ้น/เล็กลง"],["waist","เอว","ใช้เมื่อยังไม่ได้วัดรอบเอว"],["hip","สะโพก","ใช้เมื่อยังไม่ได้วัดรอบสะโพก"]];
 function shapeStatusText(){
   const s=LS.get(K.shape,null),m=latestBodyMerged()||{};
+  const pk=avPack();
+  if(pk){const p=LS.get(K.profile,null)||{},hm=(p.height||170)/100,w=m.weight??p.weight??70;return `ใช้ภาพของคุณ · ระดับ ${avLevel(m.bodyFat??null,w/(hm*hm))+1} จาก ${pk.imgs.length}`;}
   const parts=[];
   if(m.waist||m.hip||m.neck)parts.push("ใช้ค่าที่วัดจริง");
   if(s)parts.push(s.source==="photo"?"ประเมินจากรูป":"ปรับเอง");
@@ -3667,6 +3719,18 @@ function openShape(){
       </div>
     </div>
     <div class="note" style="margin-bottom:12px">📏 เอว สะโพก และคอ ใช้ค่าที่คุณวัดด้วยสายวัดโดยตรง (แม่นกว่ารูป) ส่วนไหล่ อก แขน ต้นขา ใช้ตัวเลขจากรูปหรือที่ปรับเอง</div>
+    <div class="sLabel">ภาพอวาตาร์ของฉัน</div>
+    <div class="card" style="padding:12px;margin-bottom:12px">
+      ${(()=>{const pk=avPack();if(!pk)return `<div class="small" style="margin-bottom:8px">นำเข้าไฟล์ชุดภาพ (fitlog-avatar-pack.json) เพื่อใช้ภาพตัวคุณเองแทนอวาตาร์แบบวาด แอปจะสลับภาพตาม % ไขมัน · ภาพเก็บในเครื่องนี้เท่านั้น</div>`;
+        const cur=avLevel(bf,bmi);
+        return `<div style="display:grid;grid-template-columns:repeat(${pk.imgs.length},minmax(0,1fr));gap:4px;margin-bottom:8px">${pk.imgs.map((x,i)=>`<div style="text-align:center;border-radius:10px;padding:4px 0;${i===cur?"background:var(--accent-bg);outline:1.5px solid var(--accent)":""}"><img src="${x.data}" alt="ระดับ ${i+1}" style="width:100%;height:auto;display:block"><div class="num" style="font-size:10px;color:${i===cur?"var(--accent2)":"var(--text3)"}">${i===0?"≥"+x.min:(x.min||0)+"–"+pk.imgs[i-1].min}%</div></div>`).join("")}</div>
+        <div class="small" style="margin-bottom:8px">ตอนนี้อยู่ระดับ ${cur+1} จาก ${pk.imgs.length} (ตาม % ไขมันล่าสุด) · ภาพเก็บในเครื่องนี้เท่านั้น</div>`;})()}
+      <div class="row" style="gap:8px">
+        <button class="btn btn-ghost" id="avimg-import" style="flex:1">${avPack()?"เปลี่ยนชุดภาพ":"นำเข้าชุดภาพ"}</button>
+        ${avPack()?`<button class="btn btn-ghost" id="avimg-del" style="flex:1;color:var(--red)">ลบภาพ ใช้แบบวาด</button>`:""}
+      </div>
+      <input type="file" accept=".json,application/json" id="avimg-file" style="display:none">
+    </div>
     <div class="sLabel">ให้ AI ดูจากรูป</div>
     <div class="small" style="margin-bottom:8px">ใช้รูปเต็มตัวด้านหน้า ยิ่งใส่เสื้อพอดีตัวยิ่งแม่น ถ้ามีรูปด้านข้างเพิ่มได้ · รูปส่งให้ AI วิเคราะห์ตอนนี้เท่านั้น แอปเก็บแค่ตัวเลขสัดส่วน ไม่เก็บรูป</div>
     <div id="shape-photo"></div>
@@ -3688,6 +3752,11 @@ function openShape(){
     if(flat)localStorage.removeItem(K.shape);else LS.set(K.shape,out);
     _shapeOverride=null;closeSheet();render();toast("✅ บันทึกรูปร่างแล้ว");
   };
+  const avf=document.getElementById("avimg-file");
+  document.getElementById("avimg-import").onclick=()=>avf.click();
+  avf.onchange=e=>{const f=e.target.files[0];if(f)importAvatarPack(f,()=>{_shapeOverride=null;closeSheet();render();});};
+  const avd=document.getElementById("avimg-del");
+  if(avd)avd.onclick=()=>{if(!confirm("ลบภาพอวาตาร์ออกจากเครื่องนี้ แล้วกลับไปใช้อวาตาร์แบบวาด?"))return;try{localStorage.removeItem(AVIMG_KEY);}catch(_){}_shapeOverride=null;closeSheet();render();toast("ลบภาพอวาตาร์แล้ว");};
   const imgState={images:[],note:""};
   renderImgPicker(document.getElementById("shape-photo"),imgState,"",async()=>{
     setErr("shape-err","");
