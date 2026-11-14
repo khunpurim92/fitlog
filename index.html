@@ -1371,7 +1371,7 @@ function closeGuide(){
 }
 
 const MODEL="claude-sonnet-5";
-const APP_VERSION="2026.11.14.2"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
+const APP_VERSION="2026.11.14.3"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
 
 /* ── storage ── */
 const LS={
@@ -3729,7 +3729,7 @@ function openShape(){
         <button class="btn btn-ghost" id="avimg-import" style="flex:1">${avPack()?"เปลี่ยนชุดภาพ":"นำเข้าชุดภาพ"}</button>
         ${avPack()?`<button class="btn btn-ghost" id="avimg-del" style="flex:1;color:var(--red)">ลบภาพ ใช้แบบวาด</button>`:""}
       </div>
-      <input type="file" accept=".json,application/json" id="avimg-file" style="display:none">
+      <input type="file" accept="*/*" id="avimg-file" style="display:none">
     </div>
     <div class="sLabel">ให้ AI ดูจากรูป</div>
     <div class="small" style="margin-bottom:8px">ใช้รูปเต็มตัวด้านหน้า ยิ่งใส่เสื้อพอดีตัวยิ่งแม่น ถ้ามีรูปด้านข้างเพิ่มได้ · รูปส่งให้ AI วิเคราะห์ตอนนี้เท่านั้น แอปเก็บแค่ตัวเลขสัดส่วน ไม่เก็บรูป</div>
