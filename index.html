@@ -472,6 +472,27 @@ h3{font-size:15px;font-weight:700;color:var(--text);}
 </style>
 </head>
 <body>
+<svg id="fx-defs" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<filter id="fx3d" filterUnits="userSpaceOnUse" x="-30" y="-20" width="260" height="440" color-interpolation-filters="sRGB">
+<feGaussianBlur in="SourceAlpha" stdDeviation="3" result="h1"/><feGaussianBlur in="SourceAlpha" stdDeviation="9" result="h2"/>
+<feDiffuseLighting in="h1" surfaceScale="10" diffuseConstant="1" lighting-color="#fff" result="d1"><feDistantLight azimuth="225" elevation="50"/></feDiffuseLighting>
+<feDiffuseLighting in="h2" surfaceScale="26" diffuseConstant="1" lighting-color="#fff" result="d2"><feDistantLight azimuth="225" elevation="50"/></feDiffuseLighting>
+<feComposite in="d1" in2="d2" operator="arithmetic" k1="0" k2=".5" k3=".5" k4="0" result="dl"/>
+<feComposite in="SourceGraphic" in2="dl" operator="arithmetic" k1="1.4" k2="0" k3="0" k4="0" result="lit"/>
+<feSpecularLighting in="h2" surfaceScale="26" specularConstant=".5" specularExponent="18" lighting-color="#fff" result="sp"><feDistantLight azimuth="225" elevation="50"/></feSpecularLighting>
+<feComposite in="sp" in2="SourceAlpha" operator="in" result="sp2"/>
+<feComposite in="lit" in2="sp2" operator="arithmetic" k1="0" k2="1" k3=".4" k4="0"/>
+</filter>
+<filter id="fx3dEx" filterUnits="userSpaceOnUse" x="-10" y="-10" width="220" height="170" color-interpolation-filters="sRGB">
+<feGaussianBlur in="SourceAlpha" stdDeviation="2.3" result="h"/>
+<feDiffuseLighting in="h" surfaceScale="4.5" diffuseConstant="1.12" lighting-color="#fff" result="dl"><feDistantLight azimuth="225" elevation="55"/></feDiffuseLighting>
+<feComposite in="SourceGraphic" in2="dl" operator="arithmetic" k1="1.2" k2="0" k3="0" k4="0" result="lit"/>
+<feSpecularLighting in="h" surfaceScale="4.5" specularConstant=".45" specularExponent="22" lighting-color="#fff" result="sp"><feDistantLight azimuth="225" elevation="55"/></feSpecularLighting>
+<feComposite in="sp" in2="SourceAlpha" operator="in" result="sp2"/>
+<feComposite in="lit" in2="sp2" operator="arithmetic" k1="0" k2="1" k3=".45" k4="0"/>
+</filter>
+<filter id="fxSoft" filterUnits="userSpaceOnUse" x="-30" y="-20" width="260" height="440"><feGaussianBlur stdDeviation="2.4"/></filter>
+</defs></svg>
 <div id="app"></div>
 <div class="toast" id="toast"></div>
 <script>
@@ -839,28 +860,30 @@ const GOALS=[{id:"lose",label:"ลดไขมัน"},{id:"recomp",label:"ล�
 /* ── Exercise Diagram Library (Karvonen-style stick figures) ── */
 /* ภาพท่าออกกำลัง — คนตัวทึบแบบเดียวกับ avatar (แขนขาข้างไกลจางกว่า ให้ดูมีมิติ) */
 const EQ="#6E6C86",EQ2="#8E8CA6";
+let EXB={t:1,l:1,belly:0}; // สัดส่วนของผู้ใช้ (1.0 = ทรงกลาง) — อัปเดตใน syncExBuild()
 function exFigure(p){
-  const L=(a,b,w,extra="")=>`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke-width="${w}" ${extra}/>`;
+  const B=EXB;
+  const L=(a,b,w,extra="")=>`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke-width="${(+w).toFixed(1)}" ${extra}/>`;
+  const jt=(pt,r)=>`<circle cx="${pt[0]}" cy="${pt[1]}" r="${(+r).toFixed(1)}" fill="currentColor" stroke="none"/>`;
   const limbs=(s,far)=>{
-    let o="";
-    if(s.kn)o+=L(s.hip,s.kn,far?12:13)+L(s.kn,s.an,far?9:10)+(s.toe?L(s.an,s.toe,6):"");
-    if(s.el)o+=L(s.sh,s.el,far?8:9)+L(s.el,s.wr,far?6.5:7.5)+`<circle cx="${s.wr[0]}" cy="${s.wr[1]}" r="${far?3.6:4}" fill="currentColor" stroke="none"/>`;
+    const k=far?.92:1,l=B.l;let o="";
+    if(s.kn)o+=L(s.hip,s.kn,13*k*l)+L(s.kn,s.an,10*k*l)+jt(s.hip,7*k*l)+jt(s.kn,5.4*k*l)+(s.toe?L(s.an,s.toe,6.5*k):"");
+    if(s.el)o+=L(s.sh,s.el,9*k*l)+L(s.el,s.wr,7.5*k*l)+jt(s.sh,5.8*k*l)+jt(s.el,4.2*k*l)+`<circle cx="${s.wr[0]}" cy="${s.wr[1]}" r="${((far?3.8:4.3)*k).toFixed(1)}" fill="currentColor" stroke="none"/>`;
     return o;
   };
   const front=p.view==="front";
   let g="";
   g+=`<g stroke="currentColor" stroke-linecap="round" fill="none" opacity="${front?1:.5}">${limbs(p.far,!front)}</g>`;
-  // ลำตัว + คอ + หัว
+  // ลำตัว: อกกว้าง → เอว/สะโพก (ปรับตามรูปร่างผู้ใช้) + คอ + หัว
+  const mid=[p.neck[0]+(p.pelvis[0]-p.neck[0])*.5,p.neck[1]+(p.pelvis[1]-p.neck[1])*.5];
   g+=`<g stroke="currentColor" stroke-linecap="round" fill="none">`;
-  if(front){
-    g+=L(p.far.sh,p.near.sh,13)+L(p.far.hip,p.near.hip,15);
-  }
-  g+=L(p.neck,p.pelvis,front?25:21)+L(p.neck,p.head,7);
+  if(front)g+=L(p.far.sh,p.near.sh,13*B.t)+L(p.far.hip,p.near.hip,15*B.t);
+  g+=L(p.neck,mid,(front?27:22)*B.t)+L(mid,p.pelvis,(front?25:20.5)*B.t*(1+B.belly*.22))+L(p.neck,p.head,7.5);
   g+=`</g><ellipse cx="${p.head[0]}" cy="${p.head[1]}" rx="8.5" ry="10" fill="currentColor" transform="rotate(${p.headRot||0} ${p.head[0]} ${p.head[1]})"/>`;
   g+=`<g stroke="currentColor" stroke-linecap="round" fill="none">${limbs(p.near,false)}</g>`;
   const back=(p.back||[]).join(""),fore=(p.fore||[]).join("");
   return `<svg viewBox="0 0 200 150" width="150" height="112" xmlns="http://www.w3.org/2000/svg" style="color:var(--accent,#9A8FFB)">
-<line x1="6" y1="141" x2="194" y2="141" stroke="${EQ}" stroke-width="1.5" stroke-linecap="round" opacity=".5"/>${back}${g}${fore}</svg>`;
+<line x1="6" y1="141" x2="194" y2="141" stroke="${EQ}" stroke-width="1.5" stroke-linecap="round" opacity=".5"/><ellipse cx="${p.pelvis[0]}" cy="142" rx="30" ry="3" fill="rgba(0,0,0,.28)"/>${back}<g filter="url(#fx3dEx)">${g}</g>${fore}</svg>`;
 }
 // อุปกรณ์
 const plate=(x,y,r=11)=>`<circle cx="${x}" cy="${y}" r="${r}" fill="#2A2838" stroke="${EQ2}" stroke-width="3"/><circle cx="${x}" cy="${y}" r="2.5" fill="${EQ2}"/>`;
@@ -1348,7 +1371,7 @@ function closeGuide(){
 }
 
 const MODEL="claude-sonnet-5";
-const APP_VERSION="2026.10.26.2"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
+const APP_VERSION="2026.11.14.1"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
 
 /* ── storage ── */
 const LS={
@@ -1356,7 +1379,7 @@ const LS={
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){console.error(e);window.__lsFailAt=Date.now();try{toast("⚠️ บันทึกไม่สำเร็จ — พื้นที่เก็บข้อมูลในเครื่องเต็ม กรุณาสำรองข้อมูล (เพิ่มเติม → สำรอง) แล้วลบข้อมูลเก่า");}catch(_){}return false;}},
   del(k){localStorage.removeItem(k);}
 };
-const K={profile:"fl_profile",key:"fl_key",body:"fl_body",plan:"fl_plan",fav:"fl_fav",food:d=>"fl_food_"+d,workout:d=>"fl_wk_"+d,cardio:d=>"fl_cardio_"+d,exlog:d=>"fl_exlog_"+d,exhist:"fl_exhist",dcal:d=>"fl_dcal_"+d,water:d=>"fl_water_"+d,fast:"fl_fast",override:"fl_override",tdeeAdj:"fl_tdee_adj",mealTpl:"fl_meal_tpl",theme:"fl_theme",foodDB:"fl_food_db",journal:d=>"fl_journal_"+d,coachMsgs:"fl_coach_msgs",coachHist:"fl_coach_hist",coachMemo:"fl_coach_memo"};
+const K={profile:"fl_profile",key:"fl_key",body:"fl_body",plan:"fl_plan",fav:"fl_fav",food:d=>"fl_food_"+d,workout:d=>"fl_wk_"+d,cardio:d=>"fl_cardio_"+d,exlog:d=>"fl_exlog_"+d,exhist:"fl_exhist",dcal:d=>"fl_dcal_"+d,water:d=>"fl_water_"+d,fast:"fl_fast",override:"fl_override",tdeeAdj:"fl_tdee_adj",mealTpl:"fl_meal_tpl",theme:"fl_theme",foodDB:"fl_food_db",journal:d=>"fl_journal_"+d,coachMsgs:"fl_coach_msgs",coachHist:"fl_coach_hist",coachMemo:"fl_coach_memo",shape:"fl_shape"};
 
 /* ── date ── */
 const todayStr=()=>new Date().toLocaleDateString("sv-SE");
@@ -1697,6 +1720,7 @@ function adherenceStats(endDate,days=14){
 /* ── render root ── */
 function render(){
   applyTheme();
+  try{syncExBuild();}catch(_){}
   const app=document.getElementById("app");
   const p=LS.get(K.profile,null);
   if(!p){app.innerHTML=viewSetup();bindSetup();return;}
@@ -2314,42 +2338,80 @@ function viewHome(){
   return h;
 }
 
-/* SVG silhouette ที่เปลี่ยนรูปร่าง/สีตามน้ำหนัก + %ไขมัน — แบ่งเป็น "สถานะ" ชัดเจน 5 ระดับ ไม่ใช่แค่ไล่ขนาดต่อเนื่อง */
-/* SVG silhouette สมจริงขึ้น — หัวทรงไข่ คอชัด ท่ายืนธรรมชาติ สะดือ เท้าเป็นรูปเท้า (ไม่มีนิ้ว)
-   ระบบสี/สถานะ 5 ระดับเหมือนเดิมทุกอย่าง แค่เปลี่ยนรูปร่างพื้นฐาน */
-// โครงร่างมนุษย์ด้านหน้า แบบเส้นต่อเนื่อง (ไม่ใช่ประกอบจากก้อนรูปทรง)
-function bodyAvatarSVG(weight,bf,bmi,gender,fill,w){
+/* ═══ อวาตาร์แบบมีมิติ: แสงเงาจาก SVG lighting filter + สัดส่วนจากค่าวัด/รูป ═══ */
+let _shapeOverride=null;
+function getShape(){
+  if(_shapeOverride)return _shapeOverride;
+  const s=LS.get(K.shape,null);
+  return s&&typeof s==="object"?s:null;
+}
+/* คำนวณมิติตัว (ครึ่งความกว้างในหน่วย viewBox 200×400) จาก เพศ + %ไขมัน + สัดส่วนที่ตั้งไว้ + ค่าที่วัดจริง */
+function avDims(weight,bf,bmi,gender){
+  const F=gender==="female";
   let fatLevel,tier;
   if(bf!=null){
-    fatLevel=gender==="female"?Math.max(0,Math.min(1,(bf-18)/22)):Math.max(0,Math.min(1,(bf-8)/22));
-    const thr=gender==="female"?[14,22,29,35]:[6,14,18,25];
+    fatLevel=F?Math.max(0,Math.min(1,(bf-18)/22)):Math.max(0,Math.min(1,(bf-8)/22));
+    const thr=F?[14,22,29,35]:[6,14,18,25];
     tier=bf<thr[0]?"under":bf<thr[1]?"athletic":bf<thr[2]?"fit":bf<thr[3]?"average":"obese";
   }else{
     const b=bmi??22;
     fatLevel=Math.max(0,Math.min(1,(b-19)/13));
     tier=b<18.5?"under":b<25?"average":"obese";
   }
-  const hue=tier==="under"?205:120-fatLevel*120; // ผอมเกินไป = ฟ้า (ไม่ใช่เขียวที่สื่อว่าดี)
+  const f=fatLevel,S=getShape()||{};
+  const g=k=>{const v=+S[k];return isFinite(v)&&v>0?Math.max(.8,Math.min(1.25,v)):1;};
+  const prof=LS.get(K.profile,null)||{},m=latestBodyMerged()||{};
+  const upc=370/Math.min(220,Math.max(130,+prof.height||170)); // หน่วย viewBox ต่อ 1 cm
+  let sh=((F?40:46)+f*3+(tier==="athletic"?3:0))*g("shoulder");
+  let ch=((F?31:35)+f*7)*g("chest");
+  let wa=((F?22:27)+f*19)*g("waist");
+  let hp=((F?35:31)+f*12)*g("hip");
+  let th=((F?19:18)+f*7)*g("thigh");
+  let aw=(6.5+f*3.5+(tier==="athletic"?1.2:0))*g("arm");
+  let nk=9.5+f*1.5;
+  const cm2h=c=>c/Math.PI*1.04*upc/2; // เส้นรอบวง → ครึ่งความกว้างด้านหน้า
+  const meas={};
+  if(+m.waist>0){wa=Math.max(16,Math.min(58,cm2h(+m.waist)));meas.waist=true;}
+  if(+m.hip>0){hp=Math.max(22,Math.min(58,cm2h(+m.hip)));meas.hip=true;}
+  if(+m.neck>0){nk=Math.max(7.5,Math.min(14,+m.neck/Math.PI*.9*upc/2));meas.neck=true;}
+  ch=Math.max(ch,wa*.9);sh=Math.max(sh,ch+6);th=Math.min(th,hp-9);
+  const def=tier==="athletic"?1:tier==="fit"?.65:tier==="under"?.4:tier==="average"?.22:.08; // ความชัดของกล้าม
+  return{F,f,tier,sh,ch,wa,hp,th,aw,nk,def,meas};
+}
+/* สัดส่วนที่ภาพท่าออกกำลังใช้ (1.0 = ทรงกลาง) */
+function exBuildNow(){
+  try{
+    const p=LS.get(K.profile,null);if(!p)return{t:1,l:1,belly:0};
+    const mb=latestBodyMerged()||{};
+    const hm=(p.height||170)/100,w=mb.weight??p.weight??70;
+    const D=avDims(w,mb.bodyFat??null,w/(hm*hm),p.gender);
+    const base=p.gender==="female"?31:35;
+    const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+    return{t:+cl((D.wa+D.hp)/2/base,.85,1.3).toFixed(2),l:+cl(D.th/20,.85,1.3).toFixed(2),belly:+cl((D.wa/D.hp-.85)*2.5,0,1).toFixed(2)};
+  }catch(_){return{t:1,l:1,belly:0};}
+}
+function syncExBuild(){
+  const b=exBuildNow();
+  if(b.t===EXB.t&&b.l===EXB.l&&b.belly===EXB.belly)return;
+  EXB=b;
+  Object.keys(P).forEach(k=>EXERCISE_DIAGRAMS[k]=exFigure(P[k]));
+  Object.keys(EX_ANIM).forEach(k=>{if(!EXERCISE_DIAGRAMS[k]&&P[k])EXERCISE_DIAGRAMS[k]=exFigureAt(k,0);});
+}
+
+let _avN=0;
+function bodyAvatarSVG(weight,bf,bmi,gender,fill,w){
+  const D=avDims(weight,bf,bmi,gender);
+  const{F,f,tier,sh,ch,wa,hp,th,aw,nk,def}=D;
+  const hue=tier==="under"?205:120-f*120; // ผอมเกินไป = ฟ้า (ไม่ใช่เขียวที่สื่อว่าดี)
   const hx=(h,sa,l)=>{sa/=100;l/=100;const k=n=>(n+h/30)%12,a=sa*Math.min(l,1-l),fn=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return"#"+[fn(0),fn(8),fn(4)].map(v=>Math.round(v*255).toString(16).padStart(2,"0")).join("");};
-  const c1=hx(hue,70,58),c2=hx(hue,62,40);
-  const F=gender==="female";
-  const f=fatLevel, cx=100;
-  // ครึ่งความกว้างของแต่ละจุด (จากเส้นกลาง)
-  const sh=(F?40:46)+f*3+(tier==="athletic"?3:0);   // ไหล่
-  const ch=(F?31:35)+f*7;                            // อก/ใต้รักแร้
-  const wa=(F?22:27)+f*19;                           // เอว (ขยายมากสุด = พุง)
-  const hp=(F?35:31)+f*12;                           // สะโพก
-  const th=(F?19:18)+f*7;                            // ต้นขา (ความกว้างต่อข้าง)
-  const aw=6.5+f*3.5+(tier==="athletic"?1.2:0);       // ความหนาแขน
+  const c1=hx(hue,72,62),c2=hx(hue,64,42);
+  const cx=100,u="av"+(++_avN);
   const P=(x,y)=>`${x.toFixed(1)},${y.toFixed(1)}`;
   // ── ลำตัว+ขา (ด้านซ้าย แล้ว mirror) ──
-  const L=[], R=[];
-  const seg=(pts)=>pts; // helper
-  // จุดแต่ละช่วง: [ctrl1, ctrl2, end] สำหรับด้านซ้าย (x = cx - d)
   const left=[
-    ["M",[cx-9,52]],
-    ["L",[cx-10,66]],
-    ["C",[cx-18,70],[cx-sh+8,72],[cx-sh,80]],          // บ่า → ไหล่
+    ["M",[cx-nk+1,50]],
+    ["L",[cx-nk,64]],
+    ["C",[cx-nk-8,68],[cx-sh+9,71],[cx-sh,80]],         // บ่า → ไหล่
     ["C",[cx-sh-3,86],[cx-sh+2,98],[cx-ch,112]],        // ไหล่ → รักแร้
     ["C",[cx-ch+1,135],[cx-wa-2,150],[cx-wa,172]],      // อก → เอว
     ["C",[cx-wa+1,186],[cx-hp,194],[cx-hp,210]],        // เอว → สะโพก
@@ -2363,69 +2425,89 @@ function bodyAvatarSVG(weight,bf,bmi,gender,fill,w){
   ];
   let d="";
   left.forEach(([cmd,...pts])=>{d+=cmd+pts.map(p=>P(p[0],p[1])).join(" ")+" ";});
-  // mirror (เดินย้อนกลับขึ้นด้านขวา)
   const mir=p=>[2*cx-p[0],p[1]];
   const rev=[];
   for(let i=left.length-1;i>0;i--){
-    const [cmd,...pts]=left[i];
+    const[cmd,...pts]=left[i];
     const prevEnd=left[i-1][left[i-1].length-1];
     if(cmd==="C")rev.push("C"+[pts[1],pts[0],prevEnd].map(mir).map(p=>P(p[0],p[1])).join(" "));
     else rev.push("L"+P(...mir(prevEnd)));
   }
-  // ด้านขวาเริ่มจากเป้า ย้อนสิ่งที่เป็น "ใน" ก่อน — แต่เส้นเป้าจบที่ cx อยู่แล้ว เลยต้องเริ่มจากข้อ mirror ของเส้นในขา
   d+=rev.join(" ")+" Z";
-  // ── แขน (แยกชิ้น วางทับขอบลำตัว) ──
-  const arm=(s)=>{ // s=-1 ซ้าย, 1 ขวา
-    const P=(x,y)=>{const t=Math.max(0,(y-84))*0.085*s;return `${(x+t).toFixed(1)},${y.toFixed(1)}`;};
-    const X=x=>cx+s*x; // (y ใช้ใน P ด้านล่างเพื่อกางแขนออกเล็กน้อย)
-    return `M${P(X(sh-5),79)}
-      C${P(X(sh+aw-2),79)} ${P(X(sh+aw+2),94)} ${P(X(sh+aw+1),118)}
-      C${P(X(sh+aw),142)} ${P(X(sh+aw-1),160)} ${P(X(sh+aw),170)}
-      C${P(X(sh+aw+1),190)} ${P(X(sh+aw+2),205)} ${P(X(sh+aw+2),214)}
-      C${P(X(sh+aw+4),224)} ${P(X(sh+aw+2),238)} ${P(X(sh+2),241)}
-      C${P(X(sh-3),238)} ${P(X(sh-3),224)} ${P(X(sh-2),214)}
-      C${P(X(sh-2),200)} ${P(X(sh-aw+1),186)} ${P(X(sh-aw+1),170)}
-      C${P(X(sh-aw),150)} ${P(X(ch-1),126)} ${P(X(ch),112)} Z`;  };
-  let extras="";
-  if(tier==="athletic"||tier==="fit"){
-    const op=tier==="athletic"?.28:.17;
-    extras+=`<path d="M${cx-16},112 Q${cx-8},120 ${cx},114 Q${cx+8},120 ${cx+16},112" fill="none" stroke="rgba(0,0,0,${op})" stroke-width="1.8" stroke-linecap="round"/>`;
-    const rows=tier==="athletic"?[134,148,162]:[140,154];
-    rows.forEach(y=>extras+=`<path d="M${cx-10},${y} h20" stroke="rgba(0,0,0,${op})" stroke-width="1.6" stroke-linecap="round"/>`);
-    extras+=`<path d="M${cx},126 V172" stroke="rgba(0,0,0,${op*.8})" stroke-width="1.4"/>`;
-  }else if(tier==="under"){
-    extras+=`<path d="M${cx-22},82 Q${cx-10},86 ${cx-3},80 M${cx+22},82 Q${cx+10},86 ${cx+3},80" fill="none" stroke="rgba(0,0,0,.2)" stroke-width="1.5" stroke-linecap="round"/>`;
-  }else if(tier==="obese"){
-    extras+=`<path d="M${cx-wa+8},196 Q${cx},${210+f*6} ${cx+wa-8},196" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="1.8" stroke-linecap="round"/>`;
+  // ── แขน (กางออกเล็กน้อย) ──
+  const AP=s=>(x,y)=>{const t=Math.max(0,(y-84))*0.085*s;return P(x+t,y);};
+  const arm=s=>{
+    const Q=AP(s),X=x=>cx+s*x;
+    return `M${Q(X(sh-5),79)}
+      C${Q(X(sh+aw-2),79)} ${Q(X(sh+aw+2),94)} ${Q(X(sh+aw+1),118)}
+      C${Q(X(sh+aw),142)} ${Q(X(sh+aw-1),160)} ${Q(X(sh+aw),170)}
+      C${Q(X(sh+aw+1),190)} ${Q(X(sh+aw+2),205)} ${Q(X(sh+aw+2),214)}
+      C${Q(X(sh+aw+4),224)} ${Q(X(sh+aw+2),238)} ${Q(X(sh+2),241)}
+      C${Q(X(sh-3),238)} ${Q(X(sh-3),224)} ${Q(X(sh-2),214)}
+      C${Q(X(sh-2),200)} ${Q(X(sh-aw+1),186)} ${Q(X(sh-aw+1),170)}
+      C${Q(X(sh-aw),150)} ${Q(X(ch-1),126)} ${Q(X(ch),112)} Z`;
+  };
+  const armEdge=s=>{ // เส้นขอบด้านในแขน แยกแขนออกจากลำตัว
+    const Q=AP(s),X=x=>cx+s*x;
+    return `M${Q(X(ch),112)} C${Q(X(ch-1),126)} ${Q(X(sh-aw),150)} ${Q(X(sh-aw+1),170)} C${Q(X(sh-aw+1),186)} ${Q(X(sh-2),200)} ${Q(X(sh-2),214)}`;
+  };
+  const hairTop=`M${cx-17.5},28 C${cx-19.5},8 ${cx-8},2.5 ${cx},3 C${cx+8},2.5 ${cx+19.5},8 ${cx+17.5},28 C${cx+15},19 ${cx+9},14 ${cx},14.5 C${cx-9},14 ${cx-15},19 ${cx-17.5},28Z`;
+  const shapes=`<path d="${arm(-1)}"/><path d="${arm(1)}"/><path d="${d}"/><ellipse cx="${cx}" cy="30" rx="${F?16.5:18}" ry="23"/><ellipse cx="${cx-(F?16.5:18)}" cy="32" rx="2.8" ry="5"/><ellipse cx="${cx+(F?16.5:18)}" cy="32" rx="2.8" ry="5"/>${F?`<ellipse cx="${cx}" cy="5" rx="8" ry="6"/>`:""}`;
+  // ── เงา/ไฮไลต์นุ่ม (เบลอ) ──
+  const mx=(fn)=>fn(-1)+fn(1);
+  let soft="";
+  soft+=`<ellipse cx="${cx}" cy="58" rx="${nk}" ry="5" fill="rgba(0,0,0,.2)"/>`;
+  soft+=mx(s=>`<path d="M${cx+s*(ch-5)},121 Q${cx+s*ch*.5},${138+f*5} ${cx+s*2},125" fill="none" stroke="rgba(0,0,0,${(.1+.22*def).toFixed(2)})" stroke-width="5"/>`);
+  soft+=mx(s=>`<ellipse cx="${cx+s*ch*.5}" cy="113" rx="${(ch*.42).toFixed(1)}" ry="9" fill="rgba(255,255,255,${(.06+.12*def).toFixed(2)})"/>`);
+  soft+=mx(s=>`<ellipse cx="${cx+s*(sh-4)}" cy="91" rx="8" ry="13" fill="rgba(255,255,255,.13)"/>`);
+  soft+=mx(s=>`<path d="M${cx+s*(ch+1)},118 Q${cx+s*(ch)},144 ${cx+s*wa},170" fill="none" stroke="rgba(0,0,0,.2)" stroke-width="4"/>`);
+  if(f>.28){
+    soft+=`<ellipse cx="${cx-wa*.22}" cy="165" rx="${(wa*.6).toFixed(1)}" ry="${(15+f*10).toFixed(1)}" fill="rgba(255,255,255,${(.04+f*.04).toFixed(2)})"/>`;
+    soft+=`<path d="M${cx-wa+5},184 Q${cx},${196+f*8} ${cx+wa-5},184" fill="none" stroke="rgba(0,0,0,${(.12+f*.1).toFixed(2)})" stroke-width="5"/>`;
   }
-  const shapes=`<path d="${arm(-1)}"/><path d="${arm(1)}"/><path d="${d}"/><ellipse cx="${cx}" cy="30" rx="${F?17:18}" ry="23"/>`;
-  const defs=`<defs>
-      <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient>
-      <radialGradient id="bodyHi" cx="38%" cy="28%" r="60%"><stop offset="0%" stop-color="#fff" stop-opacity=".22"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient>
-      <filter id="glow" x="-30%" y="-10%" width="160%" height="120%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    </defs>`;
+  soft+=mx(s=>`<ellipse cx="${cx+s*(th*.5+5)}" cy="252" rx="${(th*.22+2).toFixed(1)}" ry="27" fill="rgba(255,255,255,.11)"/>`);
+  soft+=mx(s=>`<path d="M${cx+s*2},228 Q${cx+s*6},262 ${cx+s*6.5},292" fill="none" stroke="rgba(0,0,0,.26)" stroke-width="5"/>`);
+  soft+=mx(s=>`<ellipse cx="${cx+s*(th+14)/2}" cy="322" rx="3.8" ry="17" fill="rgba(255,255,255,.11)"/>`);
+  soft+=mx(s=>`<ellipse cx="${cx+s*(th*.5+4)}" cy="292" rx="5" ry="4" fill="rgba(0,0,0,.14)"/>`);
+  soft+=`<ellipse cx="${cx}" cy="226" rx="6" ry="11" fill="rgba(0,0,0,.18)"/>`;
+  // ── เส้นคมบาง ──
+  let crisp="";
+  crisp+=mx(s=>`<path d="${armEdge(s)}" fill="none" stroke="rgba(0,0,0,.3)" stroke-width="1.6" stroke-linecap="round"/>`);
+  crisp+=`<path d="${hairTop}" fill="rgba(20,16,30,.62)"/>`;
+  if(F)crisp+=mx(s=>`<path d="M${cx+s*17},28 C${cx+s*22},50 ${cx+s*20},68 ${cx+s*14},73 L${cx+s*8},62 L${cx+s*10},44Z" fill="rgba(20,16,30,.5)"/>`);
+  crisp+=`<path d="M${cx-nk+2},76 Q${cx-9},82 ${cx-2},79 M${cx+nk-2},76 Q${cx+9},82 ${cx+2},79" fill="none" stroke="rgba(0,0,0,.14)" stroke-width="1.4" stroke-linecap="round"/>`;
+  if(tier==="athletic"||tier==="fit"){
+    const op=tier==="athletic"?.3:.18;
+    crisp+=`<path d="M${cx-16},112 Q${cx-8},121 ${cx},115 Q${cx+8},121 ${cx+16},112" fill="none" stroke="rgba(0,0,0,${op})" stroke-width="1.8" stroke-linecap="round"/>`;
+    [134,148,162].slice(0,tier==="athletic"?3:2).forEach(y=>crisp+=`<path d="M${cx-10},${y} h20" stroke="rgba(0,0,0,${op})" stroke-width="1.6" stroke-linecap="round"/>`);
+    crisp+=`<path d="M${cx},126 V174" stroke="rgba(0,0,0,${(op*.8).toFixed(2)})" stroke-width="1.4"/>`;
+  }else if(tier==="under"){
+    crisp+=`<path d="M${cx-22},82 Q${cx-10},86 ${cx-3},80 M${cx+22},82 Q${cx+10},86 ${cx+3},80" fill="none" stroke="rgba(0,0,0,.2)" stroke-width="1.5" stroke-linecap="round"/>`;
+  }
+  crisp+=`<circle cx="${cx}" cy="${f>.28?184:182}" r="1.7" fill="rgba(0,0,0,.34)"/>`;
+  const detail=`<g filter="url(#fxSoft)">${soft}</g>${crisp}`;
+  const grad=`<linearGradient id="${u}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient><clipPath id="${u}c">${shapes}</clipPath>`;
+  const ground=`<ellipse cx="${cx}" cy="391" rx="${(36+f*8).toFixed(0)}" ry="5" fill="rgba(0,0,0,.34)" filter="url(#fxSoft)"/>`;
   if(fill==null){
-    return`<svg viewBox="0 0 200 400" width="${w||130}" height="${(w||130)*2}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto">
-    ${defs}
-    <ellipse cx="${cx}" cy="392" rx="${34+f*8}" ry="5" fill="rgba(0,0,0,.35)"/>
-    <g fill="url(#bodyGrad)" filter="url(#glow)">${shapes}</g>
-    <path d="${d}" fill="url(#bodyHi)"/>
-    <circle cx="${cx}" cy="184" r="1.8" fill="rgba(0,0,0,.28)"/>
-    ${extras}
+    return`<svg viewBox="0 0 200 400" width="${w||130}" height="${(w||130)*2}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto" role="img" aria-label="ภาพร่างกาย 3 มิติตามสัดส่วนของคุณ">
+    <defs>${grad}</defs>
+    ${ground}
+    <g fill="url(#${u}g)" filter="url(#fx3d)">${shapes}</g>
+    <g clip-path="url(#${u}c)">${detail}</g>
   </svg>`;
   }
   // โหมดเติมตามแคลที่กิน: เงาเทา + สีจริงเติมจากเท้าขึ้นมา
   const pct=Math.max(0,Math.min(1,fill));
   const lvl=+(388-pct*382).toFixed(1);
   return`<svg viewBox="0 0 200 400" width="134" height="268" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto" role="img" aria-label="ร่างกายเติมสีตามแคลที่กินแล้ว ${Math.round(pct*100)} เปอร์เซ็นต์ของเป้า">
-    ${defs}
-    <defs><clipPath id="avFill"><rect x="0" y="${lvl}" width="200" height="400"/></clipPath><g id="avShapes">${shapes}</g></defs>
-    <ellipse cx="${cx}" cy="392" rx="${34+f*8}" ry="5" fill="rgba(0,0,0,.3)"/>
-    <use href="#avShapes" fill="var(--bg3)" stroke="var(--border)" stroke-width="2"/>
-    <g clip-path="url(#avFill)"><g fill="url(#bodyGrad)" filter="url(#glow)"><use href="#avShapes"/></g></g>
-    <path d="${d}" fill="url(#bodyHi)" clip-path="url(#avFill)"/>
+    <defs>${grad}<clipPath id="${u}f"><rect x="0" y="${lvl}" width="200" height="400"/></clipPath><g id="${u}s">${shapes}</g></defs>
+    ${ground}
+    <g filter="url(#fx3d)"><use href="#${u}s" fill="var(--bg3)" stroke="var(--border)" stroke-width="2"/></g>
+    <g clip-path="url(#${u}f)">
+      <g fill="url(#${u}g)" filter="url(#fx3d)"><use href="#${u}s"/></g>
+      <g clip-path="url(#${u}c)">${detail}</g>
+    </g>
     ${pct>0&&pct<1?`<line x1="14" y1="${lvl}" x2="186" y2="${lvl}" stroke="var(--accent2)" stroke-width="2" stroke-dasharray="6 5" opacity=".9"/>`:""}
-    <g clip-path="url(#avFill)">${extras}</g>
   </svg>`;
 }
 
@@ -3344,7 +3426,7 @@ function resizeImageFile(file,maxDim=1024){
 
 /* ── image picker (camera + library) ── */
 /* รับได้หลายรูป + พิมพ์รายละเอียดเสริมได้ — imgState = {images:[{mime,b64}], note:""} */
-function renderImgPicker(box,imgState,hint,onAnalyze){
+function renderImgPicker(box,imgState,hint,onAnalyze,ph){
   if(!imgState.images)imgState.images=[];
   if(imgState.note==null)imgState.note="";
   renderPicker();
@@ -3368,7 +3450,7 @@ function renderImgPicker(box,imgState,hint,onAnalyze){
         </div>
         <div style="margin-bottom:12px">
           <div class="flbl">📝 รายละเอียดเพิ่มเติม (ไม่บังคับ)</div>
-          <textarea id="ip-note" rows="2" placeholder="เช่น จานซ้ายไม่ใส่น้ำมัน / อีกรูปเป็นแกงเขียวหวานไก่ 1 ถ้วย" style="width:100%;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 10px;font-family:inherit;font-size:13px;resize:vertical">${esc(imgState.note)}</textarea>
+          <textarea id="ip-note" rows="2" placeholder="${esc(ph||"เช่น จานซ้ายไม่ใส่น้ำมัน / อีกรูปเป็นแกงเขียวหวานไก่ 1 ถ้วย")}" style="width:100%;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 10px;font-family:inherit;font-size:13px;resize:vertical">${esc(imgState.note)}</textarea>
         </div>
         <button class="btn btn-primary btn-block" id="af-analyze">🤖 วิเคราะห์ด้วย AI${n>1?` (${n} รูป)`:""}</button>
       `:""}
@@ -3456,6 +3538,7 @@ function viewBody(){
       <div style="margin-top:8px">${bodyStatus(bf,bmi,p.gender)}</div>
     </div>
   </div>`;
+  h+=`<button id="shape-btn" class="card" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;cursor:pointer;color:inherit;font-family:inherit;padding:12px 16px"><span><span style="display:block;font-size:14px;font-weight:800;color:var(--text)">🧍 รูปร่างของฉัน</span><span style="display:block;font-size:12px;color:var(--text2);margin-top:2px">${shapeStatusText()}</span></span><span style="font-size:18px;color:var(--text3)">›</span></button>`;
   const allStats=[...mainStats,...extraStats];
   h+=`<details class="card more-sec" id="allstats-box" ${state.allStatsOpen?"open":""}>
     <summary style="list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
@@ -3545,8 +3628,89 @@ function trendCard(title,data,field,color){
 
 function bindBody(){
   const s=document.getElementById("scan");if(s)s.onclick=openScan;
+  const sb=document.getElementById("shape-btn");if(sb)sb.onclick=openShape;
   const ab=document.getElementById("allstats-box");if(ab)ab.addEventListener("toggle",()=>{state.allStatsOpen=ab.open;});
   document.querySelectorAll("#rangeseg button").forEach(b=>b.onclick=()=>{state.bodyRange=+b.dataset.range;render();});
+}
+
+/* ═══ รูปร่างของฉัน: ปรับสัดส่วนเอง + ให้ AI ประเมินจากรูปเต็มตัว (เก็บเฉพาะตัวเลข ไม่เก็บรูป) ═══ */
+const SHAPE_FIELDS=[["shoulder","ไหล่","กว้างขึ้น/แคบลง"],["chest","อก","หนา/บางลง"],["arm","แขน","ใหญ่ขึ้น/เล็กลง"],["thigh","ต้นขา","ใหญ่ขึ้น/เล็กลง"],["waist","เอว","ใช้เมื่อยังไม่ได้วัดรอบเอว"],["hip","สะโพก","ใช้เมื่อยังไม่ได้วัดรอบสะโพก"]];
+function shapeStatusText(){
+  const s=LS.get(K.shape,null),m=latestBodyMerged()||{};
+  const parts=[];
+  if(m.waist||m.hip||m.neck)parts.push("ใช้ค่าที่วัดจริง");
+  if(s)parts.push(s.source==="photo"?"ประเมินจากรูป":"ปรับเอง");
+  return parts.length?parts.join(" + "):"ยังเป็นทรงมาตรฐาน — ให้ AI ดูจากรูปเต็มตัว";
+}
+function openShape(){
+  const p=LS.get(K.profile,null)||{},mb=latestBodyMerged()||{};
+  const hm=(p.height||170)/100,w=mb.weight??p.weight??70,bmi=w/(hm*hm),bf=mb.bodyFat??null;
+  const cur={...(LS.get(K.shape,null)||{})};
+  SHAPE_FIELDS.forEach(([k])=>{if(!(+cur[k]>0))cur[k]=1;});
+  let source=cur.source||"manual";
+  const hasWaist=!!mb.waist,hasHip=!!mb.hip;
+  _shapeOverride=cur;
+  const preview=()=>bodyAvatarSVG(w,bf,bmi,p.gender,null,96);
+  showSheet(`
+    <div class="handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div><div class="sheetTitle">รูปร่างของฉัน</div><div class="sheetSub">ปรับสัดส่วนอวาตาร์ให้ใกล้ตัวจริง</div></div>
+      <button id="close-shape" style="margin-left:auto;background:var(--bg3);border:1px solid var(--border);border-radius:50%;width:32px;height:32px;font-size:18px;color:var(--text2);cursor:pointer;flex-shrink:0">×</button>
+    </div>
+    <div class="card" style="padding:12px;margin-bottom:12px;display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px;align-items:center">
+      <div id="shape-prev">${preview()}</div>
+      <div id="shape-sl">
+        ${SHAPE_FIELDS.map(([k,l,hint])=>{
+          const off=(k==="waist"&&hasWaist)||(k==="hip"&&hasHip);
+          return `<div style="margin-bottom:6px;${off?"opacity:.4":""}"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2)"><span>${l}</span><span id="sv-${k}" class="num">${(+cur[k]).toFixed(2)}</span></div>
+          <input type="range" data-shape="${k}" min="0.85" max="1.20" step="0.01" value="${cur[k]}" ${off?"disabled":""} style="width:100%;padding:0;height:22px;background:transparent;border:none;box-shadow:none;accent-color:var(--accent)"></div>`;}).join("")}
+      </div>
+    </div>
+    <div class="note" style="margin-bottom:12px">📏 เอว สะโพก และคอ ใช้ค่าที่คุณวัดด้วยสายวัดโดยตรง (แม่นกว่ารูป) ส่วนไหล่ อก แขน ต้นขา ใช้ตัวเลขจากรูปหรือที่ปรับเอง</div>
+    <div class="sLabel">ให้ AI ดูจากรูป</div>
+    <div class="small" style="margin-bottom:8px">ใช้รูปเต็มตัวด้านหน้า ยิ่งใส่เสื้อพอดีตัวยิ่งแม่น ถ้ามีรูปด้านข้างเพิ่มได้ · รูปส่งให้ AI วิเคราะห์ตอนนี้เท่านั้น แอปเก็บแค่ตัวเลขสัดส่วน ไม่เก็บรูป</div>
+    <div id="shape-photo"></div>
+    <div class="err" id="shape-err" style="margin:8px 0"></div>
+    <div class="row" style="gap:8px">
+      <button class="btn btn-ghost" id="shape-reset" style="flex:1">รีเซ็ต</button>
+      <button class="btn-save" id="shape-save" style="flex:2">บันทึกรูปร่าง</button>
+    </div>
+  `,true);
+  const upd=()=>{document.getElementById("shape-prev").innerHTML=preview();SHAPE_FIELDS.forEach(([k])=>{const e=document.getElementById("sv-"+k);if(e)e.textContent=(+cur[k]).toFixed(2);const r=document.querySelector(`[data-shape="${k}"]`);if(r)r.value=cur[k];});};
+  document.querySelectorAll("[data-shape]").forEach(r=>r.oninput=()=>{cur[r.dataset.shape]=+r.value;source="manual";upd();});
+  const close=()=>{_shapeOverride=null;closeSheet();};
+  document.getElementById("close-shape").onclick=close;
+  const ov=document.getElementById("overlay");if(ov)ov.onclick=e=>{if(e.target===ov)close();};
+  document.getElementById("shape-reset").onclick=()=>{SHAPE_FIELDS.forEach(([k])=>cur[k]=1);source="manual";upd();};
+  document.getElementById("shape-save").onclick=()=>{
+    const out={source,updated:state.date};SHAPE_FIELDS.forEach(([k])=>out[k]=+(+cur[k]).toFixed(2));
+    const flat=SHAPE_FIELDS.every(([k])=>out[k]===1);
+    if(flat)localStorage.removeItem(K.shape);else LS.set(K.shape,out);
+    _shapeOverride=null;closeSheet();render();toast("✅ บันทึกรูปร่างแล้ว");
+  };
+  const imgState={images:[],note:""};
+  renderImgPicker(document.getElementById("shape-photo"),imgState,"",async()=>{
+    setErr("shape-err","");
+    const btn=document.getElementById("af-analyze");if(btn){btn.textContent="🔍 กำลังประเมินสัดส่วน...";btn.disabled=true;}
+    try{
+      const info=`เพศ: ${p.gender==="female"?"หญิง":"ชาย"}, ส่วนสูง ${p.height||"?"} cm, น้ำหนัก ${w} kg${bf!=null?`, ไขมัน ${bf}%`:""}${mb.waist?`, รอบเอว ${mb.waist} cm`:""}${mb.hip?`, รอบสะโพก ${mb.hip} cm`:""}${mb.neck?`, รอบคอ ${mb.neck} cm`:""}`;
+      const content=[...imgState.images.map(im=>({type:"image",source:{type:"base64",media_type:im.mime,data:im.b64}})),
+        {type:"text",text:`ประเมิน "ทรงร่างกาย" ของเจ้าของแอปจากรูป เพื่อปรับสัดส่วนอวาตาร์ (ไม่ต้องระบุตัวตน ไม่ต้องพูดถึงใบหน้า)
+ข้อมูล: ${info}
+เทียบกับคนทั่วไปเพศเดียวกัน ส่วนสูงและน้ำหนักใกล้เคียงกัน (ค่ากลาง = 1.00) ให้ค่าแต่ละส่วนในช่วง 0.85–1.20:
+shoulder=ความกว้างไหล่/กล้ามไหล่, chest=ความหนาอก, arm=ขนาดแขนท่อนบน, thigh=ขนาดต้นขา, waist=ความกว้างเอว, hip=ความกว้างสะโพก
+กติกา: เสื้อหนา/หลวมบังทรงตรงส่วนไหน ให้ค่าส่วนนั้นเข้าใกล้ 1.00 และลด confidence · ห้ามเดาเกินที่เห็น · ถ้าไม่เห็นตัวชัด confidence ต่ำ
+ตอบ JSON เท่านั้น: {"shoulder":1,"chest":1,"arm":1,"thigh":1,"waist":1,"hip":1,"confidence":0.0-1.0,"note":"ข้อสังเกตสั้นๆ ภาษาไทย 1 ประโยค"}`}];
+      const txt=await callClaude({max_tokens:500,messages:[{role:"user",content}]});
+      const r=extractJSON(txt);
+      const conf=Math.max(.3,Math.min(1,+r.confidence||.6));
+      SHAPE_FIELDS.forEach(([k])=>{const v=+r[k];if(isFinite(v)&&v>0)cur[k]=+(1+(Math.max(.85,Math.min(1.2,v))-1)*conf).toFixed(2);});
+      source="photo";upd();
+      setErr("shape-err","");
+      const e=document.getElementById("shape-err");if(e){e.style.color="var(--text2)";e.textContent=`✅ ประเมินแล้ว (ความมั่นใจ ${Math.round(conf*100)}%) ${r.note||""} — ปรับต่อด้วยแถบเลื่อนได้ แล้วกดบันทึก`;}
+      if(btn){btn.textContent="🔄 วิเคราะห์ใหม่";btn.disabled=false;}
+    }catch(e){setErr("shape-err",aiError(e));if(btn){btn.textContent="🤖 วิเคราะห์ด้วย AI";btn.disabled=false;}}
+  },"เช่น รูปซ้ายถ่ายด้านหน้า รูปขวาถ่ายด้านข้าง / ใส่เสื้อโอเวอร์ไซส์");
 }
 
 function openScan(){
