@@ -1221,7 +1221,7 @@ function openGuide(){
   let el=document.getElementById("guide");
   if(!el){el=document.createElement("div");el.id="guide";document.body.appendChild(el);}
   el.style.cssText="position:fixed;inset:0;z-index:9990;background:var(--bg);display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px calc(env(safe-area-inset-bottom,0px) + 14px);overflow-y:auto";
-  el.onclick=e=>{const b=e.target&&e.target.closest?e.target.closest("[data-g]"):null;if(b)guideAction(b.dataset.g);};
+  el.onclick=e=>{const w=e.target&&e.target.closest?e.target.closest("[data-wu]"):null;if(w){if(w.dataset.wu!==wUnit()){setWUnit(w.dataset.wu);renderGuide();}return;}const b=e.target&&e.target.closest?e.target.closest("[data-g]"):null;if(b)guideAction(b.dataset.g);};
   unlockRestAudio();keepAwake(true);
   say(`เริ่มกันเลย ท่าแรก ${items[0].ex.name}`);
   renderGuide();
@@ -1236,18 +1236,18 @@ function renderGuide(){
   const setNo=Math.min(cur.done.length+1,cur.tgt.sets);
   const show=GD.phase==="rest"&&GD.advance?GD.items[GD.i+1]:cur;
   const bs="border:none;border-radius:14px;background:var(--bg3);color:var(--text);font-family:inherit;font-weight:800;cursor:pointer";
-  const step=(lbl,val,unit,a,b)=>`<div style="flex:1;background:var(--bg3);border-radius:16px;padding:10px 8px;text-align:center">
-    <div style="font-size:10.5px;color:var(--text3);font-weight:700;margin-bottom:6px">${lbl}</div>
+  const step=(lbl,val,unit,a,b,extra="")=>`<div style="flex:1;background:var(--bg3);border-radius:16px;padding:10px 8px;text-align:center">
+    <div style="font-size:10.5px;color:var(--text3);font-weight:700;margin-bottom:6px">${lbl}${extra?" "+extra:""}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
       <button data-g="${a}" aria-label="ลด${lbl}" style="${bs};width:40px;height:40px;font-size:20px;background:var(--card2)">−</button>
       <div><span style="font-size:28px;font-weight:900;color:var(--text)">${val}</span> <span style="font-size:11px;color:var(--text3)">${unit}</span></div>
       <button data-g="${b}" aria-label="เพิ่ม${lbl}" style="${bs};width:40px;height:40px;font-size:20px;background:var(--card2)">+</button>
     </div></div>`;
-  const chips=cur.done.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 2px">${cur.done.map((d,i)=>`<span style="background:var(--green-bg);color:var(--green);border-radius:12px;padding:4px 10px;font-size:11.5px;font-weight:800">S${i+1} ${cur.tgt.timed?d.reps+" วิ":d.kg+"×"+d.reps} ✓</span>`).join("")}</div>`:"";
+  const chips=cur.done.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 2px">${cur.done.map((d,i)=>`<span style="background:var(--green-bg);color:var(--green);border-radius:12px;padding:4px 10px;font-size:11.5px;font-weight:800">S${i+1} ${cur.tgt.timed?d.reps+" วิ":wToDisp(d.kg)+"×"+d.reps} ✓</span>`).join("")}</div>`:"";
   const big=(txt,sub,color)=>`<div style="text-align:center;margin:8px 0"><div id="g-big" style="font-size:64px;font-weight:900;line-height:1.05;color:${color||"var(--accent2)"};font-variant-numeric:tabular-nums">${txt}</div>${sub?`<div style="font-size:12.5px;color:var(--text2);margin-top:4px">${sub}</div>`:""}</div>`;
   let panel="";
   if(GD.phase==="set"){
-    panel=`<div style="display:flex;gap:10px">${step("น้ำหนัก",cur.kg,"กก.","kg-","kg+")}${step("จำนวนครั้ง",cur.reps,"ครั้ง","reps-","reps+")}</div>
+    panel=`<div style="display:flex;gap:10px">${step("น้ำหนัก",wToDisp(cur.kg),wUnit()==="lb"?"lb":"กก.","kg-","kg+",wUnitToggle("g-wu"))}${step("จำนวนครั้ง",cur.reps,"ครั้ง","reps-","reps+")}</div>
       ${cur.done.length===0&&cur.sug?`<div style="font-size:11.5px;color:var(--text2);line-height:1.5;margin-top:9px;text-align:center">${cur.sug.action==="up"?"🔼":cur.sug.action==="reps"?"➕":"🎯"} ${esc(cur.sug.reason)}</div>`:""}
       ${chips}<button class="btn-save" data-g="setdone" style="margin-top:12px">✅ เซ็ต ${setNo} เสร็จ</button>`;
   }else if(GD.phase==="holdReady"){
@@ -1318,7 +1318,7 @@ function guideAction(a){
   if(!GD)return;const cur=gCur();
   if(a==="close"){guideSaveItem(cur);closeGuide();return;}
   if(a==="voice"){LS.set(VOICE_KEY,!voiceOn());if(!voiceOn())try{speechSynthesis.cancel();}catch(_){}renderGuide();return;}
-  if(a==="kg-"||a==="kg+"){const st=cur.kg<20?1:2.5;cur.kg=Math.max(0,+(cur.kg+(a==="kg+"?st:-st)).toFixed(1));renderGuide();return;}
+  if(a==="kg-"||a==="kg+"){if(wUnit()==="lb"){const v=wToDisp(cur.kg)||0,st=v<45?2.5:5;cur.kg=wFromDisp(Math.max(0,Math.round((v+(a==="kg+"?st:-st))*2)/2));}else{const st=cur.kg<20?1:2.5;cur.kg=Math.max(0,+(cur.kg+(a==="kg+"?st:-st)).toFixed(1));}renderGuide();return;}
   if(a==="reps-"||a==="reps+"){cur.reps=Math.max(1,cur.reps+(a==="reps+"?1:-1));renderGuide();return;}
   if(a==="sec-"||a==="sec+"){cur.reps=Math.max(5,cur.reps+(a==="sec+"?5:-5));renderGuide();return;}
   if(a==="setdone"){unlockRestAudio();cur.done.push({kg:cur.kg,reps:cur.reps});guideAfterSet();return;}
@@ -1371,7 +1371,7 @@ function closeGuide(){
 }
 
 const MODEL="claude-sonnet-5";
-const APP_VERSION="2026.11.18.1"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
+const APP_VERSION="2026.11.23.1"; // เปลี่ยนทุกครั้งที่อัปไฟล์ใหม่ — ใช้ตรวจว่ามีเวอร์ชันใหม่
 
 /* ── storage ── */
 const LS={
@@ -4362,6 +4362,15 @@ function bindWorkout(){
    ฟีเจอร์เวท: แนะนำน้ำหนักครั้งถัดไป + จับเวลาพัก
 ══════════════════════════════════════ */
 /* Double progression: ทำครบช่วงบนทุกเซ็ต → เพิ่มน้ำหนัก / อยู่ในช่วง → น้ำหนักเดิม +1 ครั้ง / ต่ำกว่าช่วง → คงน้ำหนัก */
+/* หน่วยน้ำหนักเวท: แสดง/กรอกเป็น kg หรือ lb ได้ แต่บันทึกเป็น kg เสมอ */
+const WU_KEY="fl_wunit",LB_KG=0.45359237;
+function wUnit(){try{return localStorage.getItem(WU_KEY)==="lb"?"lb":"kg";}catch(_){return"kg";}}
+function setWUnit(u){try{localStorage.setItem(WU_KEY,u==="lb"?"lb":"kg");}catch(_){}}
+function wToDisp(kg){if(kg===""||kg==null||isNaN(+kg))return kg;return wUnit()==="lb"?Math.round(+kg/LB_KG*10)/10:+kg;}
+function wFromDisp(v){if(v===""||v==null||isNaN(+v))return null;return wUnit()==="lb"?Math.round(+v*LB_KG*100)/100:+v;}
+function wFmt(kg){return wToDisp(kg)+(wUnit()==="lb"?" lb":"kg");}
+function wUnitToggle(id){const u=wUnit(),b=(v,l)=>`<button type="button" data-wu="${v}" style="border:none;border-radius:8px;padding:3px 9px;font-family:inherit;font-size:11px;font-weight:800;cursor:pointer;background:${u===v?"var(--accent)":"transparent"};color:${u===v?"var(--on-accent)":"var(--text3)"}">${l}</button>`;
+  return `<span id="${id}" style="display:inline-flex;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:2px;vertical-align:middle">${b("kg","kg")}${b("lb","lb")}</span>`;}
 function suggestNext(name,last,repMin,repMax){
   const ls=(last?.sets||[]).filter(s=>+s.kg>0&&+s.reps>0);
   if(!ls.length)return null;
@@ -4369,14 +4378,17 @@ function suggestNext(name,last,repMin,repMax){
   const work=ls.filter(s=>+s.kg===topKg);
   const minR=Math.min(...work.map(s=>+s.reps)),maxR=Math.max(...work.map(s=>+s.reps));
   const isDb=/dumbbell|ดัมเบล|\bdb\b/i.test(name||"");
+  const lbm=wUnit()==="lb";
   const step=isDb?2:(topKg<20?1:2.5);
   const r5=v=>Math.round(v*2)/2;
-  if(minR>=repMax)return{kg:r5(topKg+step),reps:repMin,action:"up",
-    reason:`ครั้งก่อนทำครบ ${repMax} ครั้งทุกเซ็ตที่ ${topKg}kg → เพิ่มน้ำหนัก +${step}kg แล้วเริ่มที่ ${repMin} ครั้ง`};
+  let upKg=r5(topKg+step),stepTxt=step+"kg";
+  if(lbm){const topLb=wToDisp(topKg),stLb=isDb?5:(topLb<45?2.5:5);upKg=wFromDisp(Math.round((topLb+stLb)*2)/2);stepTxt=stLb+" lb";}
+  if(minR>=repMax)return{kg:upKg,reps:repMin,action:"up",
+    reason:`ครั้งก่อนทำครบ ${repMax} ครั้งทุกเซ็ตที่ ${wFmt(topKg)} → เพิ่มน้ำหนัก +${stepTxt} แล้วเริ่มที่ ${repMin} ครั้ง`};
   if(minR>=repMin){const nr=Math.min(repMax,minR+1);return{kg:topKg,reps:nr,action:"reps",
-    reason:`ครั้งก่อนได้ ${minR===maxR?minR:minR+"-"+maxR} ครั้งที่ ${topKg}kg → น้ำหนักเดิม ทำให้ได้ ${nr} ครั้ง (ครบ ${repMax} ทุกเซ็ตเมื่อไหร่ จะแนะนำให้เพิ่มน้ำหนัก)`};}
+    reason:`ครั้งก่อนได้ ${minR===maxR?minR:minR+"-"+maxR} ครั้งที่ ${wFmt(topKg)} → น้ำหนักเดิม ทำให้ได้ ${nr} ครั้ง (ครบ ${repMax} ทุกเซ็ตเมื่อไหร่ จะแนะนำให้เพิ่มน้ำหนัก)`};}
   return{kg:topKg,reps:repMin,action:"hold",
-    reason:`ครั้งก่อนบางเซ็ตได้ ${minR} ครั้ง (เป้า ${repMin}) → ใช้น้ำหนักเดิม ${topKg}kg ทำให้ถึง ${repMin} ครั้งทุกเซ็ตก่อน`};
+    reason:`ครั้งก่อนบางเซ็ตได้ ${minR} ครั้ง (เป้า ${repMin}) → ใช้น้ำหนักเดิม ${wFmt(topKg)} ทำให้ถึง ${repMin} ครั้งทุกเซ็ตก่อน`};
 }
 const REST_KEY="fl_rest";
 function restSecondsFor(name){
@@ -4450,8 +4462,9 @@ function openExLog(ex){
       sets.push({reps:lastSets?.[i]?.reps??targetReps,kg:lastSets?.[i]?.kg??last?.sets?.[0]?.kg??"",done:false});
     }
   }
+  if(window._elKeep){sets=window._elKeep;window._elKeep=null;}
   window._elSets=sets;
-  const lastLine=last?(last.sets?`${last.sets.length} เซ็ต · ${last.sets.map(s=>s.kg+"×"+s.reps).join(", ")}`:(last.detail||"")):"";
+  const lastLine=last?(last.sets?`${last.sets.length} เซ็ต · ${last.sets.map(s=>wToDisp(s.kg)+"×"+s.reps).join(", ")+" ("+wUnit()+")"}`:(last.detail||"")):"";
   // ประวัติ + สถิติ
   const hist=exerciseHistory(ex.name,state.date);
   const allTime1RM=hist.length?Math.max(...hist.map(h=>h.oneRM)):0;
@@ -4471,12 +4484,12 @@ function openExLog(ex){
     ${(allTime1RM||cur1RM)?`<div style="display:flex;gap:8px;margin-bottom:12px">
       <div style="flex:1;background:var(--accent-bg);border-radius:var(--r-md);padding:10px;text-align:center"><div style="font-size:18px;font-weight:900;color:var(--accent2)">${cur1RM||"–"}</div><div style="font-size:9.5px;color:var(--text3)">1RM วันนี้ (kg)</div></div>
       <div style="flex:1;background:var(--bg3);border-radius:var(--r-md);padding:10px;text-align:center"><div style="font-size:18px;font-weight:900;color:var(--text)">${allTime1RM||"–"}</div><div style="font-size:9.5px;color:var(--text3)">🏆 1RM สูงสุด</div></div>
-      <div style="flex:1;background:var(--bg3);border-radius:var(--r-md);padding:10px;text-align:center"><div style="font-size:18px;font-weight:900;color:var(--text)">${allTimeKg||"–"}</div><div style="font-size:9.5px;color:var(--text3)">น้ำหนักสูงสุด</div></div>
+      <div style="flex:1;background:var(--bg3);border-radius:var(--r-md);padding:10px;text-align:center"><div style="font-size:18px;font-weight:900;color:var(--text)">${allTimeKg?wToDisp(allTimeKg):"–"}</div><div style="font-size:9.5px;color:var(--text3)">น้ำหนักสูงสุด (${wUnit()})</div></div>
     </div>`:""}
     ${hist.length>=2?`<button class="btn btn-ghost btn-block" id="el-graph-btn" style="margin-bottom:12px">📈 ดูกราฟความก้าวหน้า (${hist.length} ครั้ง)</button><div id="el-graph" style="display:none;margin-bottom:12px"></div>`:""}
     ${lastLine?`<div style="display:flex;align-items:center;gap:8px;background:var(--teal-bg);border-radius:var(--r-md);padding:9px 12px;margin-bottom:14px"><span style="font-size:15px">📈</span><span style="font-size:11px;color:var(--text2)">ครั้งก่อน: ${esc(lastLine)}</span></div>`:""}
     ${sug?`<div style="background:var(--accent-bg);border:1px solid var(--border);border-radius:var(--r-md);padding:11px 12px;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:800;color:var(--accent2)">${sug.action==="up"?"🔼":sug.action==="reps"?"➕":"🎯"} แนะนำวันนี้: ${sug.kg}kg × ${sug.reps} ครั้ง</div>
+      <div style="font-size:13px;font-weight:800;color:var(--accent2)">${sug.action==="up"?"🔼":sug.action==="reps"?"➕":"🎯"} แนะนำวันนี้: ${wFmt(sug.kg)} × ${sug.reps} ครั้ง</div>
       <div style="font-size:11px;color:var(--text2);margin-top:3px;line-height:1.5">${esc(sug.reason)}</div>
       <div style="display:flex;gap:8px;margin-top:9px">
         <button class="btn btn-primary" id="el-use-sug" style="flex:1;font-size:12px;padding:8px">ใช้คำแนะนำ</button>
@@ -4514,14 +4527,14 @@ function openExLog(ex){
       <div style="display:flex;gap:8px;padding:0 6px 6px;font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">
         <div style="width:34px">เซ็ต</div>
         <div style="flex:1;text-align:center">${tInfo.timed?"วินาที":"ครั้ง (reps)"}</div>
-        <div style="flex:1;text-align:center">น้ำหนัก (kg)</div>
+        <div style="flex:1;text-align:center;text-transform:none">น้ำหนัก ${wUnitToggle("el-wu")}</div>
         <div style="width:34px"></div>
       </div>
       ${window._elSets.map((s,i)=>`
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
           <button class="el-check ${s.done?"on":""}" data-si="${i}" style="width:34px;height:38px;border-radius:10px;border:1.5px solid ${s.done?"var(--green)":"var(--border)"};background:${s.done?"var(--green-bg)":"var(--bg3)"};color:${s.done?"var(--green)":"var(--text3)"};font-weight:800;font-size:13px;cursor:pointer;flex-shrink:0">${s.done?"✓":"S"+(i+1)}</button>
           <input class="el-reps" data-si="${i}" type="number" inputmode="numeric" value="${s.reps??""}" placeholder="${targetReps}" style="flex:1;text-align:center;font-weight:700">
-          <input class="el-kg" data-si="${i}" type="number" inputmode="decimal" value="${s.kg??""}" placeholder="0" style="flex:1;text-align:center;font-weight:700">
+          <input class="el-kg" data-si="${i}" type="number" inputmode="decimal" step="any" value="${s.kg==null||s.kg===""?"":wToDisp(s.kg)}" placeholder="0" style="flex:1;text-align:center;font-weight:700">
           <button class="el-del" data-si="${i}" style="width:34px;height:38px;border-radius:10px;border:none;background:var(--bg3);color:var(--text3);font-size:16px;cursor:pointer;flex-shrink:0">×</button>
         </div>`).join("")}`;
     box.querySelectorAll(".el-check").forEach(b=>b.onclick=()=>{
@@ -4530,7 +4543,8 @@ function openExLog(ex){
       if(window._elSets[i].done&&!window._elSets.every(s=>s.done))startRestTimer(ex.name);
     });
     box.querySelectorAll(".el-reps").forEach(inp=>inp.oninput=()=>{window._elSets[+inp.dataset.si].reps=inp.value?+inp.value:null;});
-    box.querySelectorAll(".el-kg").forEach(inp=>inp.oninput=()=>{window._elSets[+inp.dataset.si].kg=inp.value?+inp.value:null;});
+    box.querySelectorAll(".el-kg").forEach(inp=>inp.oninput=()=>{window._elSets[+inp.dataset.si].kg=inp.value?wFromDisp(inp.value):null;});
+    box.querySelectorAll("#el-wu [data-wu]").forEach(b=>b.onclick=()=>{if(b.dataset.wu===wUnit())return;setWUnit(b.dataset.wu);window._elKeep=window._elSets;openExLog(ex);toast(b.dataset.wu==="lb"?"กรอกเป็นปอนด์ · แอปแปลงเป็น kg ให้ตอนบันทึก":"กรอกเป็นกิโลกรัม");});
     box.querySelectorAll(".el-del").forEach(b=>b.onclick=()=>{window._elSets.splice(+b.dataset.si,1);if(!window._elSets.length)window._elSets.push({reps:targetReps,kg:"",done:false});renderSets();});
   }
   renderSets();
